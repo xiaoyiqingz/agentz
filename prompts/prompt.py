@@ -10,7 +10,7 @@ def get_common_prompt():
 如果你通过工具获取到了代码，你可以使用 -apply_code_patch 工具将代码写入文件中
 
 [注意]
-如果用户的需求需要多个工具配合完成，你应该以markdown格式列出一个to-do-list，每次执行完一步后, 更新并回顾to-do-list，完成下一步。
+你必须先规划，再行动，别自作主张。
 
 [tools]
 - get_current_time: 返回当前时间信息
