@@ -67,9 +67,14 @@ def process_builtin_command(user_input: str) -> Tuple[bool, Optional[str], Comma
 
 
 def _handle_exit() -> Tuple[bool, None]:
-    """处理退出命令"""
+    """处理退出命令
+    
+    注意：不再直接调用 sys.exit(0)，而是返回标记让调用者处理退出逻辑
+    这样可以确保在退出前保存历史记录等清理工作
+    """
     print("程序即将退出，再见！")
-    sys.exit(0)
+    # 不再直接调用 sys.exit(0)，让调用者处理退出逻辑
+    return True, None
 
 
 def _convert_time() -> Tuple[bool, str]:
