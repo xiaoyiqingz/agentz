@@ -1,5 +1,6 @@
 from typing import AsyncIterable
 from pydantic_ai import Agent, RunContext
+from pydantic_ai.mcp import MCPServerSSE
 from pydantic_ai.messages import (
     ModelMessage,
     SystemPromptPart,
@@ -18,6 +19,7 @@ from pydantic_ai.messages import (
 )
 from datetime import datetime
 import logfire
+import os
 from httpx import AsyncClient
 from dataclasses import dataclass
 from tools.coder import generate, modify
@@ -43,7 +45,8 @@ class Deps:
 agent = Agent(
     model=model_qwen,
     deps_type=Deps,
-    system_prompt=get_common_prompt(),
+    # system_prompt=get_common_prompt(),
+    # toolsets=[mcpServer],
 )
 
 
