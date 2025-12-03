@@ -24,17 +24,7 @@ import sys
 from pathlib import Path
 from httpx import AsyncClient
 from dataclasses import dataclass
-
-# 导入 readline 模块以增强命令行输入功能（支持中文删除、历史记录等）
-try:
-    import readline
-except ImportError:
-    # 某些系统可能没有 readline，尝试导入 gnureadline（macOS 上可能需要）
-    try:
-        import gnureadline as readline  # type: ignore[import-untyped]
-    except ImportError:
-        # 如果都没有，readline 将为 None，但不影响基本功能
-        readline = None
+from input_handler import InputHandler
 from tools.coder import generate, modify
 from models.qwen import model_qwen
 from models.deepseek import model_deepseek
@@ -154,68 +144,14 @@ async def event_stream_handler(
         thinking_started = False
 
 
-def _save_history(history_file: Path | None, readline_module) -> None:
-    """
-    保存 readline 历史记录到文件
-
-    Args:
-        history_file: 历史记录文件路径
-        readline_module: readline 模块（可能为 None）
-    """
-    if readline_module is None or history_file is None:
-        return
-
-    try:
-        # 确保目录存在
-        history_file.parent.mkdir(parents=True, exist_ok=True)
-        # 保存历史记录（即使为空也会创建文件）
-        readline_module.write_history_file(str(history_file))
-    except Exception as e:
-        # 打印错误信息以便调试，但不影响程序运行
-        print(
-            f"\n警告：无法保存历史记录到 {history_file}: {e}",
-            file=sys.stderr,
-        )
-
-
 async def server_run_stream():
     all_messages: list[ModelMessage] = []
     # message_history: list[ModelMessage] | None = None
 
-    # 初始化 readline 以增强命令行输入功能
-    history_file = None
-    if readline is not None:
-        # 获取项目根目录（server.py 所在目录的父目录）
-        project_root = Path(__file__).parent
-        # 设置历史记录文件路径为项目目录下的 data/agentz_history
-        data_dir = project_root / "data"
-        # 确保 data 目录存在
-        data_dir.mkdir(exist_ok=True)
-        history_file = data_dir / "agentz_history"
-
-        try:
-            # 尝试加载历史记录
-            readline.read_history_file(str(history_file))
-        except FileNotFoundError:
-            # 历史记录文件不存在，这是正常的（首次运行）
-            pass
-        except Exception as e:
-            # 其他错误（如权限问题）也忽略，不影响程序运行
-            print(f"警告：无法加载历史记录文件: {e}")
-
-        # 设置历史记录最大长度
-        readline.set_history_length(1000)
-
-        # 配置 readline 选项以改善中文输入体验
-        # 这些设置有助于正确处理多字节字符（如中文）
-        if hasattr(readline, "parse_and_bind"):
-            # 启用更好的编辑功能
-            readline.parse_and_bind("set editing-mode emacs")
-            # macOS 上可能需要这个设置
-            if hasattr(readline, "set_completer_delims"):
-                readline.set_completer_delims(
-                    readline.get_completer_delims().replace("/", "")
-                )
+    # 初始化命令行输入处理器
+    project_root = Path(__file__).parent
+    input_handler = InputHandler(project_root)
+    input_handler.initialize()
 
     async with AsyncClient() as client:
         logfire.instrument_httpx(client, capture_all=True)
@@ -236,7 +172,7 @@ async def server_run_stream():
                         # 检查是否是退出命令（exit/quit/q）
                         if user_input.strip().lower() in ("exit", "quit", "q"):
                             # 退出前保存历史记录
-                            _save_history(history_file, readline)
+                            input_handler.save_history()
                             # 退出循环（程序会在 async with 块结束后自然退出）
                             break
                         continue
@@ -286,7 +222,7 @@ async def server_run_stream():
 
         except (KeyboardInterrupt, EOFError):
             # 保存历史记录
-            _save_history(history_file, readline)
+            input_handler.cleanup()
             raise
 
 
