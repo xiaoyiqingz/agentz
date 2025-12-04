@@ -23,6 +23,7 @@ dependencies = [
     { name = "pydantic-ai" },
     { name = "pydantic-ai-slim", extra = ["duckduckgo", "tavily"] },
     { name = "python-dotenv" },
+    { name = "rich" },
 ]
 
 [package.metadata]
@@ -31,6 +32,7 @@ requires-dist = [
     { name = "pydantic-ai", specifier = ">1.0.0" },
     { name = "pydantic-ai-slim", extras = ["duckduckgo", "tavily"], specifier = ">=1.0.2" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
+    { name = "rich", specifier = ">=13.0.0" },
 ]
 
 [[package]]

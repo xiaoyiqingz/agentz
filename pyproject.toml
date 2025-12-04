@@ -9,6 +9,7 @@ dependencies = [
     "pydantic-ai>1.0.0",
     "pydantic-ai-slim[duckduckgo,tavily]>=1.0.2",
     "python-dotenv>=1.1.1",
+    "rich>=13.0.0",
 ]
 
 [tool.logfire]

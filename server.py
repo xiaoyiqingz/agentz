@@ -16,9 +16,7 @@ from pydantic_ai.messages import (
     BuiltinToolCallEvent,
     BuiltinToolResultEvent,
 )
-from datetime import datetime
 import logfire
-import os
 from pathlib import Path
 from httpx import AsyncClient
 from dataclasses import dataclass
@@ -30,7 +28,10 @@ from prompts.prompt import get_common_prompt
 from tools.code_patcher import apply_patch
 from tools.code_reader import read_file_lines
 from tools.tools_registry import get_all_tools
+from output_formatter import create_formatter
 from commands.builtin_commands import process_builtin_command, CommandType
+from rich.prompt import Prompt
+from rich.console import Console
 
 # 配置 logfire 将日志输出到文件而不是控制台
 logfire.configure()
@@ -145,14 +146,17 @@ async def server_run_stream():
     input_handler = InputHandler(project_root)
     input_handler.initialize()
 
+    # 创建 rich Console 实例用于美化输出
+    console = Console()
+
     async with AsyncClient() as client:
         logfire.instrument_httpx(client, capture_all=True)
         deps = Deps(client=client)
 
         try:
             while True:
-                # 等待用户输入（readline 会自动增强 input() 的功能）
-                user_input = input("> ")
+                # 等待用户输入（readline 会自动增强 input() 的功能，rich 美化提示符）
+                user_input = Prompt.ask("[bold cyan]>[/bold cyan]")
 
                 # 处理内置命令
                 is_builtin, result, command_type = process_builtin_command(user_input)
@@ -184,24 +188,39 @@ async def server_run_stream():
                     for message in result.new_messages():
                         for call in message.parts:
                             if isinstance(call, ToolCallPart):
-                                print("调用tool：", call.tool_name)
+                                console.print(
+                                    f"[bold yellow]🔧 调用tool：[/bold yellow][cyan]{call.tool_name}[/cyan]"
+                                )
                             elif isinstance(call, ToolReturnPart):
-                                print("tool返回：", call.content)
+                                console.print(
+                                    f"[bold green]📤 tool返回：[/bold green][dim]{call.content}[/dim]"
+                                )
                             elif isinstance(call, SystemPromptPart):
-                                print("系统提示：", call.content)
+                                console.print(
+                                    f"[bold magenta]💬 系统提示：[/bold magenta][dim]{call.content}[/dim]"
+                                )
                             elif isinstance(call, UserPromptPart):
-                                print("用户输入：", call.content)
+                                console.print(
+                                    f"[bold blue]👤 用户输入：[/bold blue][dim]{call.content}[/dim]"
+                                )
                             elif isinstance(call, ThinkingPart):
                                 # 什么也不做，因为已经在 event_stream_handler 中处理了，此处打印只会在Think全部完成后打印内容，太慢
                                 pass
                             else:
-                                print(type(call))
+                                console.print(
+                                    f"[dim]未知类型：[/dim][yellow]{type(call)}[/yellow]"
+                                )
 
-                    print("\n================\n")
-                    """ 流式显示文本内容 """
+                    console.print()  # 空行
+                    console.rule("[bold cyan]AI 响应[/bold cyan]", style="cyan")
+
+                    """ 流式显示文本内容，使用 rich 美化输出 """
+                    formatter = create_formatter()
                     async for message in result.stream_text(delta=True):
-                        print(message, end="", flush=True)
-                    print()  # 换行
+                        formatter.add_chunk(message)
+                        formatter.render_if_needed()
+                    # 最终渲染所有剩余内容
+                    formatter.render_final()
 
                 all_messages = all_messages + result.new_messages()
                 # 对于stream_text(delta=True)，result.all_messages()和result.new_messages()都不会返回历史信息
