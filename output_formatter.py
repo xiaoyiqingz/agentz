@@ -7,10 +7,8 @@
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.live import Live
-from rich.panel import Panel
 from rich.prompt import Prompt
 from typing import Optional, Union
-import re
 import time
 
 

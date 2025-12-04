@@ -24,7 +24,7 @@ from input_handler import InputHandler
 from tools.coder import generate, modify
 from models.qwen import model_qwen
 from models.deepseek import model_deepseek
-from prompts.prompt import get_common_prompt
+from prompts.prompt import get_smart_assistant_prompt
 from tools.code_patcher import apply_patch
 from tools.code_reader import read_file_lines
 from tools.tools_registry import get_all_tools
@@ -48,7 +48,7 @@ tools_list = get_all_tools()
 agent_kwargs = {
     "model": model_qwen,
     "deps_type": Deps,
-    # "system_prompt": get_common_prompt(),
+    "system_prompt": get_smart_assistant_prompt(),  # 启用智能助手提示词，控制工具使用策略
 }
 if tools_list:
     agent_kwargs["tools"] = tools_list
