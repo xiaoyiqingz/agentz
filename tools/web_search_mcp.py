@@ -1,13 +1,14 @@
 """
-网页搜索工具 - Tavily 集成
+网页搜索工具 - Tavily 和 DuckDuckGo 集成
 
-使用 Tavily 提供网页搜索功能。
+使用 Tavily 和 DuckDuckGo 提供网页搜索功能。
 参考文档: https://docs.tavily.com/documentation/integrations/pydantic-ai
 """
 
 import os
 from typing import Optional
 from pydantic_ai.common_tools.tavily import tavily_search_tool
+from pydantic_ai.common_tools.duckduckgo import duckduckgo_search_tool
 
 
 def get_tavily_search_tool() -> Optional[object]:
@@ -34,6 +35,19 @@ def get_tavily_search_tool() -> Optional[object]:
     return tavily_search_tool(api_key)
 
 
+def get_duckduckgo_search_tool() -> Optional[object]:
+    """
+    获取 DuckDuckGo 网页搜索工具
+
+    DuckDuckGo 搜索工具不需要 API Key，可以直接使用。
+
+    Returns:
+        DuckDuckGo 搜索工具实例
+    """
+    # DuckDuckGo 搜索工具不需要配置，直接返回
+    return duckduckgo_search_tool()
+
+
 def get_tavily_config() -> dict:
     """
     获取 Tavily 的配置信息
@@ -50,4 +64,19 @@ def get_tavily_config() -> dict:
             f"{api_key[:8]}..." if api_key and len(api_key) > 8 else None
         ),
         "enabled": bool(api_key),
+    }
+
+
+def get_duckduckgo_config() -> dict:
+    """
+    获取 DuckDuckGo 的配置信息
+
+    返回当前配置的字典，用于调试和日志记录。
+
+    Returns:
+        dict: 包含配置信息的字典
+    """
+    return {
+        "enabled": True,  # DuckDuckGo 不需要配置，始终可用
+        "api_key_required": False,
     }
