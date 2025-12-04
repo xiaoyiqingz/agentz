@@ -21,11 +21,13 @@ def _import_readline() -> Optional[object]:
     """
     try:
         import readline
+
         return readline
     except ImportError:
         # 某些系统可能没有 readline，尝试导入 gnureadline（macOS 上可能需要）
         try:
             import gnureadline as readline  # type: ignore[import-untyped]
+
             return readline
         except ImportError:
             # 如果都没有，返回 None，但不影响基本功能
@@ -128,4 +130,3 @@ class InputHandler:
         通常在程序退出时调用。
         """
         self.save_history()
-

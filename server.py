@@ -1,6 +1,5 @@
 from typing import AsyncIterable
 from pydantic_ai import Agent, RunContext
-from pydantic_ai.mcp import MCPServerSSE
 from pydantic_ai.messages import (
     ModelMessage,
     SystemPromptPart,
@@ -20,7 +19,6 @@ from pydantic_ai.messages import (
 from datetime import datetime
 import logfire
 import os
-import sys
 from pathlib import Path
 from httpx import AsyncClient
 from dataclasses import dataclass
@@ -31,6 +29,7 @@ from models.deepseek import model_deepseek
 from prompts.prompt import get_common_prompt
 from tools.code_patcher import apply_patch
 from tools.code_reader import read_file_lines
+from tools.tools_registry import get_all_tools
 from commands.builtin_commands import process_builtin_command, CommandType
 
 # 配置 logfire 将日志输出到文件而不是控制台
@@ -43,26 +42,19 @@ class Deps:
     client: AsyncClient
 
 
-# mcpServer = MCPServerSSE(url=os.getenv("MCP_SERVER_URL"))
-# agent = Agent(model=model, deps_type=Deps, toolsets=[mcpServer])
-agent = Agent(
-    model=model_qwen,
-    deps_type=Deps,
-    # system_prompt=get_common_prompt(),
-    # toolsets=[mcpServer],
-)
+# 获取所有工具列表
+tools_list = get_all_tools()
 
+# 创建 Agent 实例
+agent_kwargs = {
+    "model": model_qwen,
+    "deps_type": Deps,
+    # "system_prompt": get_common_prompt(),
+}
+if tools_list:
+    agent_kwargs["tools"] = tools_list
 
-@agent.tool_plain
-def get_current_time() -> str:
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-
-@agent.tool
-async def get_weather(ctx: RunContext[Deps], city: str) -> str:
-    url = f"http://wttr.in/{city}?format=3"
-    response = await ctx.deps.client.get(url)
-    return response.text
+agent = Agent(**agent_kwargs)
 
 
 @agent.tool

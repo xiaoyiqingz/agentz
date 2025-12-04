@@ -5,7 +5,11 @@
 """
 
 import asyncio
+from dotenv import load_dotenv
 from server import server_run_stream
+
+# 加载 .env 文件中的环境变量（包括代理设置）
+load_dotenv()
 
 
 def main():
