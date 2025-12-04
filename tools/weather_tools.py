@@ -26,7 +26,6 @@ async def get_weather(ctx: RunContext[Any], city: str) -> str:
     # 使用 httpx 的 params 参数，让 httpx 自动处理查询参数的编码
     url = f"http://wttr.in/{encoded_city}"
     try:
-        print(f"获取 {city} 的天气信息 (URL: {url})")
         response = await ctx.deps.client.get(url, params={"format": "3"})
         return response.text
     except httpx.ReadTimeout:

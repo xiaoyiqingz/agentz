@@ -8,7 +8,8 @@ from rich.console import Console
 from rich.markdown import Markdown
 from rich.live import Live
 from rich.panel import Panel
-from typing import Optional
+from rich.prompt import Prompt
+from typing import Optional, Union
 import re
 import time
 
@@ -206,11 +207,141 @@ class LiveMarkdownFormatter:
         self.last_update_time = 0.0
 
 
+class UnifiedFormatter:
+    """
+    统一的输出格式化器
+
+    封装所有美化输出功能，包括：
+    - 用户输入提示
+    - 各种消息输出（工具调用、返回、系统提示等）
+    - 分隔线和布局
+    - Markdown 流式输出
+    """
+
+    def __init__(self, use_live: bool = True):
+        """
+        初始化统一格式化器
+
+        Args:
+            use_live: 是否使用 Live 实时渲染 Markdown（默认 True）
+        """
+        self.console = Console()
+        # 内部包含 Markdown 流式格式化器
+        if use_live:
+            self.markdown_formatter: Union[
+                LiveMarkdownFormatter, SimpleMarkdownFormatter
+            ] = LiveMarkdownFormatter()
+        else:
+            self.markdown_formatter = SimpleMarkdownFormatter(show_stream=True)
+
+    def ask_input(self, prompt: str = "[bold cyan]>[/bold cyan]") -> str:
+        """
+        获取用户输入（替代 Prompt.ask）
+
+        Args:
+            prompt: 提示符文本，支持 rich markup
+
+        Returns:
+            用户输入的字符串
+        """
+        return Prompt.ask(prompt)
+
+    def print_tool_call(self, tool_name: str) -> None:
+        """
+        打印工具调用信息（替代 console.print）
+
+        Args:
+            tool_name: 工具名称
+        """
+        self.console.print(
+            f"[bold yellow]🔧 调用tool：[/bold yellow][cyan]{tool_name}[/cyan]"
+        )
+
+    def print_tool_result(self, content: str) -> None:
+        """
+        打印工具返回结果（替代 console.print）
+
+        Args:
+            content: 返回内容
+        """
+        self.console.print(
+            f"[bold green]📤 tool返回：[/bold green][dim]{content}[/dim]"
+        )
+
+    def print_system_prompt(self, content: str) -> None:
+        """
+        打印系统提示（替代 console.print）
+
+        Args:
+            content: 系统提示内容
+        """
+        self.console.print(
+            f"[bold magenta]💬 系统提示：[/bold magenta][dim]{content}[/dim]"
+        )
+
+    def print_user_input(self, content: str) -> None:
+        """
+        打印用户输入（替代 console.print）
+
+        Args:
+            content: 用户输入内容
+        """
+        self.console.print(f"[bold blue]👤 用户输入：[/bold blue][dim]{content}[/dim]")
+
+    def print_unknown(self, obj_type: type) -> None:
+        """
+        打印未知类型（替代 console.print）
+
+        Args:
+            obj_type: 未知对象的类型
+        """
+        self.console.print(f"[dim]未知类型：[/dim][yellow]{obj_type}[/yellow]")
+
+    def print_blank_line(self) -> None:
+        """
+        打印空行（替代 console.print()）
+        """
+        self.console.print()
+
+    def print_rule(
+        self, text: str = "[bold cyan]AI 响应[/bold cyan]", style: str = "cyan"
+    ) -> None:
+        """
+        打印分隔线（替代 console.rule）
+
+        Args:
+            text: 分隔线中央的文本，支持 rich markup
+            style: 分隔线样式
+        """
+        self.console.rule(text, style=style)
+
+    def add_chunk(self, chunk: str) -> None:
+        """
+        添加文本块到 Markdown 流式输出缓冲区
+
+        Args:
+            chunk: 文本块
+        """
+        self.markdown_formatter.add_chunk(chunk)
+
+    def render_if_needed(self) -> None:
+        """流式输出过程中实时更新显示（限制更新频率）"""
+        self.markdown_formatter.render_if_needed()
+
+    def render_final(self) -> None:
+        """最终渲染所有 Markdown 内容"""
+        self.markdown_formatter.render_final()
+
+    def reset(self) -> None:
+        """重置 Markdown 格式化器缓冲区"""
+        self.markdown_formatter.reset()
+
+
 def create_formatter(
     use_live: bool = True,
-) -> LiveMarkdownFormatter | SimpleMarkdownFormatter:
+) -> UnifiedFormatter:
     """
-    创建格式化器实例
+    创建统一的格式化器实例
 
     Args:
         use_live: 是否使用 Live 实时渲染（默认 True）
@@ -218,9 +349,6 @@ def create_formatter(
                  - False: 使用 SimpleMarkdownFormatter，流式输出时显示原始文本，结束时渲染 Markdown
 
     Returns:
-        格式化器实例
+        UnifiedFormatter 实例，提供统一的输出美化接口
     """
-    if use_live:
-        return LiveMarkdownFormatter()
-    else:
-        return SimpleMarkdownFormatter(show_stream=True)
+    return UnifiedFormatter(use_live=use_live)

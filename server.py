@@ -30,8 +30,6 @@ from tools.code_reader import read_file_lines
 from tools.tools_registry import get_all_tools
 from output_formatter import create_formatter
 from commands.builtin_commands import process_builtin_command, CommandType
-from rich.prompt import Prompt
-from rich.console import Console
 
 # 配置 logfire 将日志输出到文件而不是控制台
 logfire.configure()
@@ -146,8 +144,8 @@ async def server_run_stream():
     input_handler = InputHandler(project_root)
     input_handler.initialize()
 
-    # 创建 rich Console 实例用于美化输出
-    console = Console()
+    # 创建统一的格式化器
+    formatter = create_formatter()
 
     async with AsyncClient() as client:
         logfire.instrument_httpx(client, capture_all=True)
@@ -156,7 +154,7 @@ async def server_run_stream():
         try:
             while True:
                 # 等待用户输入（readline 会自动增强 input() 的功能，rich 美化提示符）
-                user_input = Prompt.ask("[bold cyan]>[/bold cyan]")
+                user_input = formatter.ask_input()
 
                 # 处理内置命令
                 is_builtin, result, command_type = process_builtin_command(user_input)
@@ -188,39 +186,30 @@ async def server_run_stream():
                     for message in result.new_messages():
                         for call in message.parts:
                             if isinstance(call, ToolCallPart):
-                                console.print(
-                                    f"[bold yellow]🔧 调用tool：[/bold yellow][cyan]{call.tool_name}[/cyan]"
-                                )
+                                formatter.print_tool_call(call.tool_name)
                             elif isinstance(call, ToolReturnPart):
-                                console.print(
-                                    f"[bold green]📤 tool返回：[/bold green][dim]{call.content}[/dim]"
-                                )
+                                formatter.print_tool_result(call.content)
                             elif isinstance(call, SystemPromptPart):
-                                console.print(
-                                    f"[bold magenta]💬 系统提示：[/bold magenta][dim]{call.content}[/dim]"
-                                )
+                                formatter.print_system_prompt(call.content)
                             elif isinstance(call, UserPromptPart):
-                                console.print(
-                                    f"[bold blue]👤 用户输入：[/bold blue][dim]{call.content}[/dim]"
-                                )
+                                formatter.print_user_input(call.content)
                             elif isinstance(call, ThinkingPart):
                                 # 什么也不做，因为已经在 event_stream_handler 中处理了，此处打印只会在Think全部完成后打印内容，太慢
                                 pass
                             else:
-                                console.print(
-                                    f"[dim]未知类型：[/dim][yellow]{type(call)}[/yellow]"
-                                )
+                                formatter.print_unknown(type(call))
 
-                    console.print()  # 空行
-                    console.rule("[bold cyan]AI 响应[/bold cyan]", style="cyan")
+                    formatter.print_blank_line()
+                    formatter.print_rule()
 
                     """ 流式显示文本内容，使用 rich 美化输出 """
-                    formatter = create_formatter()
                     async for message in result.stream_text(delta=True):
                         formatter.add_chunk(message)
                         formatter.render_if_needed()
                     # 最终渲染所有剩余内容
                     formatter.render_final()
+                    # 重置格式化器缓冲区，避免下次对话时重复显示
+                    formatter.reset()
 
                 all_messages = all_messages + result.new_messages()
                 # 对于stream_text(delta=True)，result.all_messages()和result.new_messages()都不会返回历史信息
