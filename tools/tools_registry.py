@@ -5,6 +5,8 @@
 """
 
 from typing import List, Any
+
+from pydantic_ai.tools import Tool
 from tools.time_tools import get_current_time
 from tools.web_search import get_tavily_search_tool, get_duckduckgo_search_tool
 from tools.weather_tools import get_weather
@@ -29,8 +31,8 @@ def get_all_tools() -> List[Any]:
     # 添加时间工具
     tools_list.append(get_current_time)
 
-    # 添加天气工具
-    tools_list.append(get_weather)
+    # 添加天气工具, 可以重试两次
+    tools_list.append(Tool(get_weather, max_retries=2))
 
     # 添加 Tavily 网页搜索工具（如果可用）
     # tavily_tool = get_tavily_search_tool()

@@ -7,6 +7,7 @@ from pydantic_ai.messages import (
     ToolCallPart,
     ToolReturnPart,
     UserPromptPart,
+    RetryPromptPart,
     AgentStreamEvent,
     PartStartEvent,
     PartDeltaEvent,
@@ -196,6 +197,15 @@ async def server_run_stream():
                             elif isinstance(call, ThinkingPart):
                                 # 什么也不做，因为已经在 event_stream_handler 中处理了，此处打印只会在Think全部完成后打印内容，太慢
                                 pass
+                            elif isinstance(call, RetryPromptPart):
+                                # 处理重试提示，显示重试信息
+                                retry_info = f"🔄 重试工具：{call.tool_name or '未知'}"
+                                if isinstance(call.content, str):
+                                    formatter.console.print(
+                                        f"[dim]{retry_info} - {call.content}[/dim]"
+                                    )
+                                else:
+                                    formatter.console.print(f"[dim]{retry_info}[/dim]")
                             else:
                                 formatter.print_unknown(type(call))
 
