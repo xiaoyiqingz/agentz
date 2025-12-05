@@ -32,12 +32,14 @@ async def get_weather(ctx: RunContext[Any], city: str) -> str:
     try:
         response = await ctx.deps.client.get(url, params={"format": "3"})
         return response.text
-    except httpx.ReadTimeout:
+    except httpx.ReadTimeout as e:
         # 请求超时，抛出 ModelRetry 以触发 pydantic-ai 的重试机制
         # 重试次数由 Tool(max_retries=2) 控制
-        # 使用 ctx.retry 字典获取当前工具的重试次数
+        # 从异常中获取错误详情
+        error_detail = str(e)
+        request_url = getattr(e.request, "url", url) if hasattr(e, "request") else url
         raise ModelRetry(
-            f"获取 {city} 的天气信息时请求超时，正在重试（当前重试次数：{ctx.retry}）"
+            f"获取 {city} 的天气信息时请求超时（URL: {request_url}，错误: {error_detail}），正在重试（当前重试次数：{ctx.retry}）"
         )
     except httpx.RequestError as e:
         # 其他网络请求错误，不重试，直接返回错误信息
