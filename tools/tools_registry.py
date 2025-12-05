@@ -6,7 +6,7 @@
 
 from typing import List, Any
 from tools.time_tools import get_current_time
-from tools.web_search_mcp import get_tavily_search_tool, get_duckduckgo_search_tool
+from tools.web_search import get_tavily_search_tool, get_duckduckgo_search_tool
 from tools.weather_tools import get_weather
 
 

@@ -1,7 +1,7 @@
 """
 网页搜索工具 - Tavily 和 DuckDuckGo 集成
 
-使用 Tavily 和 DuckDuckGo 提供网页搜索功能。
+使用 pydantic-ai 自带的 Tavily 和 DuckDuckGo 工具提供网页搜索功能。
 参考文档: https://docs.tavily.com/documentation/integrations/pydantic-ai
 """
 
