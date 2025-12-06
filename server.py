@@ -18,6 +18,7 @@ from pydantic_ai.messages import (
     BuiltinToolResultEvent,
 )
 import logfire
+import os
 from pathlib import Path
 from httpx import AsyncClient
 from dataclasses import dataclass
@@ -32,9 +33,17 @@ from tools.tools_registry import get_all_tools
 from output_formatter import create_formatter
 from commands.builtin_commands import process_builtin_command, CommandType
 
+# Planning Design 模式相关导入
+from planning.orchestrator import PlanningOrchestrator
+from planning.specialized_agents import Deps as PlanningDeps
+
 # 配置 logfire 将日志输出到文件而不是控制台
 logfire.configure()
 logfire.instrument_pydantic_ai()
+
+# 读取 Planning 模式配置
+USE_PLANNING_MODE = os.getenv("USE_PLANNING_MODE", "false").lower() == "true"
+PLANNING_MAX_ITERATIONS = int(os.getenv("PLANNING_MAX_ITERATIONS", "1"))
 
 
 @dataclass
@@ -148,6 +157,14 @@ async def server_run_stream():
     # 创建统一的格式化器
     formatter = create_formatter()
 
+    # 初始化 Planning 协调器（如果启用 Planning 模式）
+    orchestrator = None
+    if USE_PLANNING_MODE:
+        orchestrator = PlanningOrchestrator()
+        formatter.console.print(
+            "[green]✓ Planning Design 模式已启用[/green]"
+        )
+
     async with AsyncClient() as client:
         logfire.instrument_httpx(client, capture_all=True)
         deps = Deps(client=client)
@@ -175,13 +192,30 @@ async def server_run_stream():
                         # 转换型命令：将转换后的内容作为用户输入传给 agent
                         user_input = result
 
-                # 在用户输入后加上"！"并返回
-                async with agent.run_stream(
-                    user_input,
-                    deps=deps,
-                    message_history=all_messages,
-                    event_stream_handler=event_stream_handler,
-                ) as result:
+                # 根据配置选择使用 Planning 模式还是单一 Agent 模式
+                if USE_PLANNING_MODE and orchestrator is not None:
+                    # 使用 Planning Design 模式（非流式）
+                    formatter.console.print("[dim]🤔 Planning 模式处理中...[/dim]")
+                    planning_deps = PlanningDeps(client=client)
+                    final_result = await orchestrator.execute(
+                        user_input,
+                        deps=planning_deps,
+                        max_iterations=PLANNING_MAX_ITERATIONS,
+                    )
+                    # 显示结果
+                    formatter.print_blank_line()
+                    formatter.print_rule()
+                    formatter.console.print(final_result)
+                    formatter.print_blank_line()
+                    formatter.print_rule()
+                else:
+                    # 使用单一 Agent 模式（流式）
+                    async with agent.run_stream(
+                        user_input,
+                        deps=deps,
+                        message_history=all_messages,
+                        event_stream_handler=event_stream_handler,
+                    ) as result:
 
                     # 处理历史消息
                     for message in result.new_messages():
@@ -216,17 +250,18 @@ async def server_run_stream():
                     async for message in result.stream_text(delta=True):
                         formatter.add_chunk(message)
                         formatter.render_if_needed()
-                    # 最终渲染所有剩余内容
-                    formatter.render_final()
-                    # 重置格式化器缓冲区，避免下次对话时重复显示
-                    formatter.reset()
+                        # 最终渲染所有剩余内容
+                        formatter.render_final()
+                        # 重置格式化器缓冲区，避免下次对话时重复显示
+                        formatter.reset()
 
-                all_messages = all_messages + result.new_messages()
-                # 对于stream_text(delta=True)，result.all_messages()和result.new_messages()都不会返回历史信息
-                # 所以需要手动将历史信息添加到all_messages中
-                # all_messages = result.all_messages()
-                # message_history = result.new_messages()
-                # print(all_messages)
+                    # 更新消息历史（仅单一 Agent 模式）
+                    all_messages = all_messages + result.new_messages()
+                    # 对于stream_text(delta=True)，result.all_messages()和result.new_messages()都不会返回历史信息
+                    # 所以需要手动将历史信息添加到all_messages中
+                    # all_messages = result.all_messages()
+                    # message_history = result.new_messages()
+                    # print(all_messages)
 
                 print()  # 空行分隔
 
