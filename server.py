@@ -65,32 +65,6 @@ if tools_list:
 agent = Agent(**agent_kwargs)
 
 
-@agent.tool
-async def read_code_file(
-    ctx: RunContext[Deps], file_path: str, start_line: int, end_line: int
-) -> str:
-    return read_file_lines(file_path, start_line, end_line)
-
-
-@agent.tool
-async def apply_code_patch(
-    ctx: RunContext[Deps], file_path: str, patch_string: str
-) -> str:
-    return apply_patch(patch_string, file_path)
-
-
-@agent.tool
-async def check_and_modify_code(
-    ctx: RunContext[Deps], code_string: str, file_path: str, begin_line: int = 1
-) -> str:
-    return await modify(code_string, file_path, begin_line)
-
-
-@agent.tool
-async def generate_code(ctx: RunContext[Deps], text: str) -> str:
-    return await generate(text)
-
-
 async def event_stream_handler(
     ctx: RunContext,
     event_stream: AsyncIterable[AgentStreamEvent],
