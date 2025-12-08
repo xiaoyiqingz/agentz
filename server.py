@@ -25,7 +25,6 @@ from dataclasses import dataclass
 from input_handler import InputHandler
 from tools.coder import generate, modify
 from models.qwen import model_qwen
-from models.deepseek import model_deepseek
 from prompts.prompt import get_smart_assistant_prompt
 from tools.code_patcher import apply_patch
 from tools.code_reader import read_file_lines
@@ -145,6 +144,73 @@ async def event_stream_handler(
         thinking_started = False
 
 
+def process_history_messages(result, formatter):
+    """处理历史消息，根据消息类型进行格式化输出"""
+    # 处理历史消息
+    for message in result.new_messages():
+        for call in message.parts:
+            if isinstance(call, ToolCallPart):
+                formatter.print_tool_call(call.tool_name)
+            elif isinstance(call, ToolReturnPart):
+                formatter.print_tool_result(call.content)
+            elif isinstance(call, SystemPromptPart):
+                formatter.print_system_prompt(call.content)
+            elif isinstance(call, UserPromptPart):
+                formatter.print_user_input(call.content)
+            elif isinstance(call, ThinkingPart):
+                # 什么也不做，因为已经在 event_stream_handler 中处理了，此处打印只会在Think全部完成后打印内容，太慢
+                pass
+            elif isinstance(call, RetryPromptPart):
+                # 处理重试提示，显示重试信息
+                retry_info = f"🔄 重试工具：{call.tool_name or '未知'}"
+                if isinstance(call.content, str):
+                    formatter.console.print(f"[dim]{retry_info} - {call.content}[/dim]")
+                else:
+                    formatter.console.print(f"[dim]{retry_info}[/dim]")
+            else:
+                formatter.print_unknown(type(call))
+
+
+async def stream_and_render_text(result, formatter):
+    """流式显示文本内容，使用 rich 美化输出"""
+    formatter.print_blank_line()
+    formatter.print_rule()
+
+    async for message in result.stream_text(delta=True):
+        formatter.add_chunk(message)
+        formatter.render_if_needed()
+    # 最终渲染所有剩余内容
+    formatter.render_final()
+    # 重置格式化器缓冲区，避免下次对话时重复显示
+    formatter.reset()
+
+
+def handle_builtin_command_result(command_type, result, user_input, input_handler):
+    """
+    处理内置命令的结果
+
+    返回: (should_break, should_continue, updated_user_input)
+    - should_break: 是否应该退出循环
+    - should_continue: 是否应该跳过后续处理（continue）
+    - updated_user_input: 更新后的用户输入
+    """
+    if command_type == CommandType.DIRECT:
+        # 直接处理型命令：显示结果并等待用户继续输入
+        if result is not None:
+            print(result)
+        # 检查是否是退出命令（exit/quit/q）
+        if user_input.strip().lower() in ("exit", "quit", "q"):
+            # 退出前保存历史记录
+            input_handler.save_history()
+            # 退出循环（程序会在 async with 块结束后自然退出）
+            return (True, False, user_input)
+        return (False, True, user_input)
+    elif command_type == CommandType.CONVERT:
+        # 转换型命令：将转换后的内容作为用户输入传给 agent
+        return (False, False, result)
+    return (False, False, user_input)
+
+
 async def server_run_stream():
     all_messages: list[ModelMessage] = []
     # message_history: list[ModelMessage] | None = None
@@ -161,9 +227,7 @@ async def server_run_stream():
     orchestrator = None
     if USE_PLANNING_MODE:
         orchestrator = PlanningOrchestrator()
-        formatter.console.print(
-            "[green]✓ Planning Design 模式已启用[/green]"
-        )
+        formatter.console.print("[green]✓ Planning Design 模式已启用[/green]")
 
     async with AsyncClient() as client:
         logfire.instrument_httpx(client, capture_all=True)
@@ -177,20 +241,15 @@ async def server_run_stream():
                 # 处理内置命令
                 is_builtin, result, command_type = process_builtin_command(user_input)
                 if is_builtin:
-                    if command_type == CommandType.DIRECT:
-                        # 直接处理型命令：显示结果并等待用户继续输入
-                        if result is not None:
-                            print(result)
-                        # 检查是否是退出命令（exit/quit/q）
-                        if user_input.strip().lower() in ("exit", "quit", "q"):
-                            # 退出前保存历史记录
-                            input_handler.save_history()
-                            # 退出循环（程序会在 async with 块结束后自然退出）
-                            break
+                    should_break, should_continue, user_input = (
+                        handle_builtin_command_result(
+                            command_type, result, user_input, input_handler
+                        )
+                    )
+                    if should_break:
+                        break
+                    if should_continue:
                         continue
-                    elif command_type == CommandType.CONVERT:
-                        # 转换型命令：将转换后的内容作为用户输入传给 agent
-                        user_input = result
 
                 # 根据配置选择使用 Planning 模式还是单一 Agent 模式
                 if USE_PLANNING_MODE and orchestrator is not None:
@@ -217,53 +276,21 @@ async def server_run_stream():
                         event_stream_handler=event_stream_handler,
                     ) as result:
 
-                    # 处理历史消息
-                    for message in result.new_messages():
-                        for call in message.parts:
-                            if isinstance(call, ToolCallPart):
-                                formatter.print_tool_call(call.tool_name)
-                            elif isinstance(call, ToolReturnPart):
-                                formatter.print_tool_result(call.content)
-                            elif isinstance(call, SystemPromptPart):
-                                formatter.print_system_prompt(call.content)
-                            elif isinstance(call, UserPromptPart):
-                                formatter.print_user_input(call.content)
-                            elif isinstance(call, ThinkingPart):
-                                # 什么也不做，因为已经在 event_stream_handler 中处理了，此处打印只会在Think全部完成后打印内容，太慢
-                                pass
-                            elif isinstance(call, RetryPromptPart):
-                                # 处理重试提示，显示重试信息
-                                retry_info = f"🔄 重试工具：{call.tool_name or '未知'}"
-                                if isinstance(call.content, str):
-                                    formatter.console.print(
-                                        f"[dim]{retry_info} - {call.content}[/dim]"
-                                    )
-                                else:
-                                    formatter.console.print(f"[dim]{retry_info}[/dim]")
-                            else:
-                                formatter.print_unknown(type(call))
+                        # 处理历史消息
+                        process_history_messages(result, formatter)
 
-                    formatter.print_blank_line()
-                    formatter.print_rule()
+                        # 流式显示文本内容
+                        await stream_and_render_text(result, formatter)
 
-                    """ 流式显示文本内容，使用 rich 美化输出 """
-                    async for message in result.stream_text(delta=True):
-                        formatter.add_chunk(message)
-                        formatter.render_if_needed()
-                        # 最终渲染所有剩余内容
-                        formatter.render_final()
-                        # 重置格式化器缓冲区，避免下次对话时重复显示
-                        formatter.reset()
+                        # 更新消息历史（仅单一 Agent 模式）
+                        all_messages = all_messages + result.new_messages()
+                        # 对于stream_text(delta=True)，result.all_messages()和result.new_messages()都不会返回历史信息
+                        # 所以需要手动将历史信息添加到all_messages中
+                        # all_messages = result.all_messages()
+                        # message_history = result.new_messages()
+                        # print(all_messages)
 
-                    # 更新消息历史（仅单一 Agent 模式）
-                    all_messages = all_messages + result.new_messages()
-                    # 对于stream_text(delta=True)，result.all_messages()和result.new_messages()都不会返回历史信息
-                    # 所以需要手动将历史信息添加到all_messages中
-                    # all_messages = result.all_messages()
-                    # message_history = result.new_messages()
-                    # print(all_messages)
-
-                print()  # 空行分隔
+                        print()  # 空行分隔
 
         except (KeyboardInterrupt, EOFError):
             # 保存历史记录
