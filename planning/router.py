@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 from models.planning import Plan, SubTask, AgentEnum
 from planning.specialized_agents import get_agent_by_type, Deps
+from planning.context_helper import format_history_for_context_agent
 
 
 @dataclass
@@ -62,8 +63,20 @@ class TaskRouter:
                 # 获取对应的 Agent
                 agent = get_agent_by_type(task.assigned_agent)
 
-                # 执行任务
-                agent_result = await agent.run(task.task_details, deps=deps)
+                # 如果是 Context Agent，需要格式化历史记录并添加到任务描述中
+                if task.assigned_agent == AgentEnum.CONTEXT_AGENT:
+                    # 格式化历史记录
+                    history_text = format_history_for_context_agent(
+                        deps.message_history
+                    )
+                    # 将历史记录添加到任务描述中
+                    enhanced_task = (
+                        f"{task.task_details}\n\n对话历史记录：\n{history_text}"
+                    )
+                    agent_result = await agent.run(enhanced_task, deps=deps)
+                else:
+                    # 其他 Agent 正常执行
+                    agent_result = await agent.run(task.task_details, deps=deps)
 
                 # 收集结果
                 results.append(

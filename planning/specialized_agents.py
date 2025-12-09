@@ -5,8 +5,9 @@
 每个 Agent 专注于特定领域的任务，配备相应的工具和提示词。
 """
 
-from typing import Dict
+from typing import Dict, Optional, List
 from pydantic_ai import Agent
+from pydantic_ai.messages import ModelMessage
 from dataclasses import dataclass
 from httpx import AsyncClient
 
@@ -17,6 +18,7 @@ from prompts.planning_prompts import (
     get_weather_agent_prompt,
     get_search_agent_prompt,
     get_general_agent_prompt,
+    get_context_agent_prompt,
 )
 from tools.tools_registry import (
     get_code_tools,
@@ -31,6 +33,9 @@ class Deps:
     """Agent 依赖项（与 server.py 中的 Deps 保持一致）"""
 
     client: AsyncClient
+    message_history: Optional[List[ModelMessage]] = (
+        None  # 历史消息记录（主要用于 Context Agent）
+    )
 
 
 # ==================== 专门化 Agent 创建 ====================
@@ -80,6 +85,17 @@ def _create_general_agent() -> Agent:
     )
 
 
+def _create_context_agent() -> Agent:
+    """创建 Context Agent（上下文/历史相关任务）"""
+    return Agent(
+        name="context_agent",
+        model=model_qwen,
+        deps_type=Deps,
+        tools=[],  # Context Agent 不需要工具，它直接访问历史记录
+        system_prompt=get_context_agent_prompt(),
+    )
+
+
 # ==================== Agent 实例 ====================
 
 # 延迟初始化：在首次使用时创建 Agent 实例
@@ -87,6 +103,7 @@ _code_agent: Agent | None = None
 _weather_agent: Agent | None = None
 _search_agent: Agent | None = None
 _general_agent: Agent | None = None
+_context_agent: Agent | None = None
 
 
 def _get_code_agent() -> Agent:
@@ -121,6 +138,14 @@ def _get_general_agent() -> Agent:
     return _general_agent
 
 
+def _get_context_agent() -> Agent:
+    """获取 Context Agent 实例（延迟初始化）"""
+    global _context_agent
+    if _context_agent is None:
+        _context_agent = _create_context_agent()
+    return _context_agent
+
+
 # ==================== 公共接口 ====================
 
 
@@ -144,12 +169,18 @@ def get_general_agent() -> Agent:
     return _get_general_agent()
 
 
+def get_context_agent() -> Agent:
+    """获取 Context Agent 实例"""
+    return _get_context_agent()
+
+
 # Agent 注册表
 _agent_registry: Dict[AgentEnum, callable] = {
     AgentEnum.CODE_AGENT: _get_code_agent,
     AgentEnum.WEATHER_AGENT: _get_weather_agent,
     AgentEnum.SEARCH_AGENT: _get_search_agent,
     AgentEnum.GENERAL_AGENT: _get_general_agent,
+    AgentEnum.CONTEXT_AGENT: _get_context_agent,
     AgentEnum.DEFAULT_AGENT: _get_general_agent,  # 默认使用 General Agent
 }
 
@@ -177,3 +208,4 @@ code_agent = _get_code_agent
 weather_agent = _get_weather_agent
 search_agent = _get_search_agent
 general_agent = _get_general_agent
+context_agent = _get_context_agent

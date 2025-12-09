@@ -68,8 +68,12 @@ class PlanningOrchestrator:
                     greeting_result = await self._handle_greeting(plan, deps)
                     return greeting_result, planner_result
 
-                # 3. 执行计划
-                task_results = await self.router.execute_plan(plan, deps=deps)
+                # 3. 执行计划（传递历史记录）
+                # 创建包含历史记录的 deps
+                enhanced_deps = Deps(
+                    client=deps.client, message_history=message_history
+                )
+                task_results = await self.router.execute_plan(plan, deps=enhanced_deps)
 
                 # 4. 汇总结果
                 final_result = self.aggregator.aggregate(plan.main_task, task_results)

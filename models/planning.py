@@ -16,6 +16,7 @@ class AgentEnum(str, Enum):
     WEATHER_AGENT = "weather_agent"  # 天气/时间相关任务
     SEARCH_AGENT = "search_agent"  # 网络搜索、信息查询任务
     GENERAL_AGENT = "general_agent"  # 通用对话、问答任务
+    CONTEXT_AGENT = "context_agent"  # 上下文/历史相关任务
     DEFAULT_AGENT = "default_agent"  # 默认/兜底 Agent
 
 
