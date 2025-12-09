@@ -187,6 +187,7 @@ def handle_builtin_command_result(command_type, result, user_input, input_handle
 
 async def server_run_stream():
     all_messages: list[ModelMessage] = []
+    planning_history: list[ModelMessage] = []  # Planning 模式的历史记录
     # message_history: list[ModelMessage] | None = None
 
     # 初始化命令行输入处理器
@@ -230,10 +231,11 @@ async def server_run_stream():
                     # 使用 Planning Design 模式（非流式）
                     formatter.console.print("[dim]🤔 Planning 模式处理中...[/dim]")
                     planning_deps = PlanningDeps(client=client)
-                    final_result = await orchestrator.execute(
+                    final_result, planner_result = await orchestrator.execute(
                         user_input,
                         deps=planning_deps,
                         max_iterations=PLANNING_MAX_ITERATIONS,
+                        message_history=planning_history,
                     )
                     # 显示结果
                     formatter.print_blank_line()
@@ -241,6 +243,15 @@ async def server_run_stream():
                     formatter.console.print(final_result)
                     formatter.print_blank_line()
                     formatter.print_rule()
+
+                    # 更新 Planning 模式的历史记录（和单一 Agent 模式一样的方式）
+                    if planner_result is not None:
+                        planning_history = (
+                            planning_history + planner_result.new_messages()
+                        )
+
+                    # 重置格式化器，确保 Live 对象被正确关闭，避免影响后续输入
+                    formatter.reset()
                 else:
                     # 使用单一 Agent 模式（流式）
                     async with agent.run_stream(

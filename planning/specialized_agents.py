@@ -39,6 +39,7 @@ class Deps:
 def _create_code_agent() -> Agent:
     """创建 Code Agent（代码相关任务）"""
     return Agent(
+        name="code_agent",
         model=model_qwen,
         deps_type=Deps,
         tools=get_code_tools(),
@@ -49,6 +50,7 @@ def _create_code_agent() -> Agent:
 def _create_weather_agent() -> Agent:
     """创建 Weather Agent（天气/时间相关任务）"""
     return Agent(
+        name="weather_agent",
         model=model_qwen,
         deps_type=Deps,
         tools=get_weather_tools(),
@@ -59,6 +61,7 @@ def _create_weather_agent() -> Agent:
 def _create_search_agent() -> Agent:
     """创建 Search Agent（搜索相关任务）"""
     return Agent(
+        name="search_agent",
         model=model_qwen,
         deps_type=Deps,
         tools=get_search_tools(),
@@ -69,6 +72,7 @@ def _create_search_agent() -> Agent:
 def _create_general_agent() -> Agent:
     """创建 General Agent（通用任务）"""
     return Agent(
+        name="general_agent",
         model=model_qwen,
         deps_type=Deps,
         tools=get_all_tools(),

@@ -4,8 +4,9 @@ Planner Agent
 负责任务分解和规划，生成结构化的任务计划。
 """
 
-from typing import Optional
+from typing import Optional, List
 from pydantic_ai import Agent
+from pydantic_ai.messages import ModelMessage
 from dataclasses import dataclass
 from httpx import AsyncClient
 
@@ -60,24 +61,33 @@ def get_planner_agent() -> Agent:
     return _planner_agent
 
 
-async def create_plan(user_input: str, deps: PlannerDeps) -> Plan:
+async def create_plan(
+    user_input: str,
+    deps: PlannerDeps,
+    message_history: Optional[List[ModelMessage]] = None,
+) -> tuple[Plan, object]:
     """
     根据用户输入生成任务计划
 
     Args:
         user_input: 用户输入/请求
         deps: Planner Agent 的依赖项
+        message_history: 历史消息记录（用于保持对话上下文）
 
     Returns:
-        Plan: 生成的任务计划
+        tuple[Plan, object]: (生成的任务计划, planner_result)
+        - Plan: 结构化的计划对象
+        - planner_result: Planner Agent 的执行结果，包含 new_messages() 方法
 
     Raises:
         Exception: 如果 Planner Agent 执行失败或返回无效的计划
     """
     planner = get_planner_agent()
 
-    # 调用 Planner Agent 生成计划
-    result = await planner.run(user_input, deps=deps)
+    # 调用 Planner Agent 生成计划（传入历史消息）
+    result = await planner.run(
+        user_input, deps=deps, message_history=message_history or []
+    )
 
-    # 返回结构化的计划（Pydantic 会自动验证）
-    return result.output
+    # 返回结构化的计划（Pydantic 会自动验证）和 result 对象
+    return result.output, result
