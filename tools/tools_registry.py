@@ -132,6 +132,7 @@ def get_search_tools() -> List[Any]:
     tools_list: List[Any] = []
 
     # 添加 DuckDuckGo 网页搜索工具（不需要配置，始终可用）
+    # 该工具可以用于搜索互联网信息，也可以搜索特定 URL 相关的信息
     duckduckgo_tool = get_duckduckgo_search_tool()
     if duckduckgo_tool is not None:
         tools_list.append(duckduckgo_tool)
