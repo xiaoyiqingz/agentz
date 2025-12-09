@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 model_deepseek = OpenAIChatModel(
-    "deepseek-chat",
+    os.getenv("DEEPSEEK_MODEL_NAME", "deepseek-chat"),
     provider=DeepSeekProvider(api_key=os.getenv("DEEPSEEK_API_KEY")),
 )
 

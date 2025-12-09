@@ -7,7 +7,7 @@ import os
 load_dotenv()
 
 model_qwen = OpenAIChatModel(
-    "qwen3-coder-plus",
+    os.getenv("QWEN_MODEL_NAME", "qwen3-coder-plus"),
     provider=OpenAIProvider(
         base_url=os.getenv("QWEN_BASE_URL"), api_key=os.getenv("QWEN_API_KEY")
     ),
