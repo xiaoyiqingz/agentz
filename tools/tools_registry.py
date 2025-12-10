@@ -15,6 +15,7 @@ from tools.weather_tools import get_weather
 from tools.code_reader import read_file_lines
 from tools.code_patcher import apply_patch
 from tools.coder import generate, modify
+from tools.file_writer import write_file
 
 
 # ==================== 代码相关工具函数 ====================
@@ -91,6 +92,27 @@ async def generate_code(ctx: RunContext[Any], text: str) -> str:
     return await generate(text)
 
 
+async def write_string_to_file(
+    ctx: RunContext[Any], file_path: str, content: str, overwrite: bool = True
+) -> str:
+    """
+    将字符串内容写入指定文件
+
+    支持写入代码、markdown等任何文本内容。
+    如果目录不存在，会自动创建。
+
+    Args:
+        ctx: Agent 运行上下文
+        file_path: 目标文件路径（可以是相对路径或绝对路径）
+        content: 要写入的内容字符串（可以是代码、markdown等）
+        overwrite: 如果文件已存在，是否覆盖。默认为True
+
+    Returns:
+        str: 操作结果描述
+    """
+    return write_file(file_path, content, overwrite)
+
+
 # ==================== 工具分类函数 ====================
 
 
@@ -106,6 +128,7 @@ def get_code_tools() -> List[Any]:
         apply_code_patch_tool,
         check_and_modify_code,
         generate_code,
+        write_string_to_file,
     ]
 
 
@@ -150,7 +173,7 @@ def get_all_tools() -> List[Any]:
     获取所有可用的工具列表
 
     此函数负责初始化和注册所有工具，包括：
-    - 代码工具 (read_code_file, apply_code_patch, check_and_modify_code, generate_code)
+    - 代码工具 (read_code_file, apply_code_patch, check_and_modify_code, generate_code, write_string_to_file)
     - 时间工具 (get_current_time)
     - 天气工具 (get_weather)
     - 搜索工具 (duckduckgo_search, tavily_search)
