@@ -16,6 +16,7 @@ from tools.code_reader import read_file_lines
 from tools.code_patcher import apply_patch
 from tools.coder import generate, modify
 from tools.file_writer import write_file
+from tools.directory_tools import list_directory
 
 
 # ==================== 代码相关工具函数 ====================
@@ -113,6 +114,23 @@ async def write_string_to_file(
     return write_file(file_path, content, overwrite)
 
 
+async def list_directory_tool(
+    ctx: RunContext[Any], directory_path: str, include_hidden: bool = False
+) -> str:
+    """
+    列出指定目录下的文件和文件夹
+
+    Args:
+        ctx: Agent 运行上下文
+        directory_path: 目录路径（可以是相对路径或绝对路径）
+        include_hidden: 是否包含隐藏文件（以.开头的文件/文件夹）。默认为False
+
+    Returns:
+        str: 格式化的目录内容列表，包含文件和文件夹信息
+    """
+    return list_directory(directory_path, include_hidden)
+
+
 # ==================== 工具分类函数 ====================
 
 
@@ -129,6 +147,7 @@ def get_code_tools() -> List[Any]:
         check_and_modify_code,
         generate_code,
         write_string_to_file,
+        list_directory_tool,
     ]
 
 
@@ -173,7 +192,7 @@ def get_all_tools() -> List[Any]:
     获取所有可用的工具列表
 
     此函数负责初始化和注册所有工具，包括：
-    - 代码工具 (read_code_file, apply_code_patch, check_and_modify_code, generate_code, write_string_to_file)
+    - 代码工具 (read_code_file, apply_code_patch, check_and_modify_code, generate_code, write_string_to_file, list_directory)
     - 时间工具 (get_current_time)
     - 天气工具 (get_weather)
     - 搜索工具 (duckduckgo_search, tavily_search)
