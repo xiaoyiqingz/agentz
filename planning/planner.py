@@ -6,8 +6,8 @@ Planner Agent
 
 from typing import Optional, List
 from pydantic_ai import Agent
-from pydantic_ai.messages import ModelMessage
-from dataclasses import dataclass
+from pydantic_ai.messages import ModelMessage, ModelRequest, SystemPromptPart
+from dataclasses import dataclass, replace
 from httpx import AsyncClient
 
 from models.qwen import model_qwen
@@ -29,6 +29,29 @@ class PlannerDeps:
 
 # 延迟初始化：在首次使用时创建 Planner Agent 实例
 _planner_agent: Optional[Agent] = None
+
+
+def filter_system_prompt_parts(messages: list[ModelMessage]) -> list[ModelMessage]:
+    """
+    过滤掉所有消息中的 SystemPromptPart 部分
+
+    这个 history processor 会遍历所有消息，如果是 ModelRequest，
+    就过滤掉其中的 SystemPromptPart，保留其他部分。
+    """
+    filtered_messages = []
+    for msg in messages:
+        if isinstance(msg, ModelRequest):
+            # 过滤掉 SystemPromptPart，保留其他部分
+            filtered_parts = [
+                part for part in msg.parts if not isinstance(part, SystemPromptPart)
+            ]
+            # 使用 dataclasses.replace 创建新的 ModelRequest，只更新 parts
+            filtered_msg = replace(msg, parts=filtered_parts)
+            filtered_messages.append(filtered_msg)
+        else:
+            # 非 ModelRequest 消息保持不变
+            filtered_messages.append(msg)
+    return filtered_messages
 
 
 def _create_planner_agent() -> Agent:
