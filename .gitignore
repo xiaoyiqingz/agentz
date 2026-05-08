@@ -51,3 +51,6 @@ logs/
 *.tmp
 *.temp
 agentz_history
+
+# Project-local Codex skills
+.agents/
