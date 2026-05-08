@@ -2,10 +2,12 @@ from typing import AsyncIterable
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.messages import (
     ModelMessage,
+    ModelResponse,
     SystemPromptPart,
     ThinkingPart,
     ToolCallPart,
     ToolReturnPart,
+    TextPart,
     UserPromptPart,
     RetryPromptPart,
     AgentStreamEvent,
@@ -47,7 +49,7 @@ tools_list = get_all_tools()
 
 # 创建 Agent 实例
 agent_kwargs = {
-    "model": model_qwen,
+    "model": model_deepseek,
     "deps_type": Deps,
     "system_prompt": get_smart_assistant_prompt(),  # 启用智能助手提示词，控制工具使用策略
 }
@@ -176,6 +178,8 @@ async def server_run_stream():
                         user_input = result
 
                 # 在用户输入后加上"！"并返回
+                final_response_text = ""
+
                 async with agent.run_stream(
                     user_input,
                     deps=deps,
@@ -214,6 +218,7 @@ async def server_run_stream():
 
                     """ 流式显示文本内容，使用 rich 美化输出 """
                     async for message in result.stream_text(delta=True):
+                        final_response_text += message
                         formatter.add_chunk(message)
                         formatter.render_if_needed()
                     # 最终渲染所有剩余内容
@@ -222,8 +227,15 @@ async def server_run_stream():
                     formatter.reset()
 
                 all_messages = all_messages + result.new_messages()
+                if final_response_text:
+                    all_messages.append(
+                        ModelResponse(
+                            parts=[TextPart(content=final_response_text)],
+                            model_name=agent.model.model_name,
+                        )
+                    )
                 # 对于stream_text(delta=True)，result.all_messages()和result.new_messages()都不会返回历史信息
-                # 所以需要手动将历史信息添加到all_messages中
+                # 所以在 delta 模式下，需要手动补齐最终 assistant 文本到历史消息中
                 # all_messages = result.all_messages()
                 # message_history = result.new_messages()
                 # print(all_messages)
