@@ -139,13 +139,11 @@ async def event_stream_handler(
 
 
 async def server_run_stream():
-    all_messages: list[ModelMessage] = []
-    # message_history: list[ModelMessage] | None = None
-
     # 初始化命令行输入处理器
     project_root = Path(__file__).parent
     input_handler = InputHandler(project_root)
     input_handler.initialize()
+    all_messages: list[ModelMessage] = input_handler.load_message_history()
 
     # 创建统一的格式化器
     formatter = create_formatter()
@@ -169,6 +167,7 @@ async def server_run_stream():
                         # 检查是否是退出命令（exit/quit/q）
                         if user_input.strip().lower() in ("exit", "quit", "q"):
                             # 退出前保存历史记录
+                            input_handler.save_message_history(all_messages)
                             input_handler.save_history()
                             # 退出循环（程序会在 async with 块结束后自然退出）
                             break
@@ -234,16 +233,15 @@ async def server_run_stream():
                             model_name=agent.model.model_name,
                         )
                     )
-                # 对于stream_text(delta=True)，result.all_messages()和result.new_messages()都不会返回历史信息
-                # 所以在 delta 模式下，需要手动补齐最终 assistant 文本到历史消息中
-                # all_messages = result.all_messages()
-                # message_history = result.new_messages()
-                # print(all_messages)
+                # readline 输入历史和 Pydantic AI 消息历史分别持久化。
+                input_handler.save_message_history(all_messages)
+                input_handler.save_history()
 
                 print()  # 空行分隔
 
         except (KeyboardInterrupt, EOFError):
             # 保存历史记录
+            input_handler.save_message_history(all_messages)
             input_handler.cleanup()
             raise
 
