@@ -41,15 +41,18 @@ def _import_readline() -> Optional[object]:
 class InputHandler:
     """命令行输入处理器，封装 readline 功能"""
 
-    def __init__(self, project_root: Path):
+    def __init__(self, project_root: Path, session_id: str):
         """
         初始化输入处理器
 
         Args:
             project_root: 项目根目录路径，用于确定历史记录文件位置
+            session_id: 当前会话 ID，用于隔离不同 session 的历史文件
         """
         self.project_root = project_root
+        self.session_id = session_id
         self.readline_module = _import_readline()
+        self.session_dir: Optional[Path] = None
         self.history_file: Optional[Path] = None
         self.message_history_file: Optional[Path] = None
         self._initialized = False
@@ -72,12 +75,13 @@ class InputHandler:
         - 加载历史记录
         - 配置 readline 选项
         """
-        # 设置历史记录文件路径为项目目录下的 data 目录
-        data_dir = self.project_root / "data"
-        # 确保 data 目录存在
-        data_dir.mkdir(exist_ok=True)
-        self.history_file = data_dir / "agentz_history"
-        self.message_history_file = data_dir / "agentz_message_history.json"
+        # 为每个 session 使用独立目录，方便恢复与区分。
+        data_dir = self.project_root / "data" / "sessions"
+        self.session_dir = data_dir / self.session_id
+        # 确保目录存在
+        self.session_dir.mkdir(parents=True, exist_ok=True)
+        self.history_file = self.session_dir / "agentz_history"
+        self.message_history_file = self.session_dir / "agentz_message_history.json"
 
         if not self.is_available():
             self._initialized = True

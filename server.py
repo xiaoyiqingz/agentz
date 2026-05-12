@@ -1,16 +1,9 @@
-from typing import AsyncIterable
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.messages import (
     ModelMessage,
-    ModelResponse,
-    SystemPromptPart,
     ThinkingPart,
-    ToolCallPart,
-    ToolReturnPart,
     TextPart,
-    UserPromptPart,
-    RetryPromptPart,
-    AgentStreamEvent,
+    TextPartDelta,
     PartStartEvent,
     PartDeltaEvent,
     ThinkingPartDelta,
@@ -19,6 +12,7 @@ from pydantic_ai.messages import (
     BuiltinToolCallEvent,
     BuiltinToolResultEvent,
 )
+from pydantic_ai.run import AgentRunResultEvent
 import logfire
 from pathlib import Path
 from httpx import AsyncClient
@@ -84,64 +78,10 @@ async def check_and_modify_code(
 async def generate_code(ctx: RunContext[Deps], text: str) -> str:
     return await generate(text)
 
-
-async def event_stream_handler(
-    ctx: RunContext,
-    event_stream: AsyncIterable[AgentStreamEvent],
-):
-    """处理流式事件的处理器函数"""
-    # 流式处理事件
-    thinking_content = ""
-    thinking_started = False
-
-    async for event in event_stream:
-        if isinstance(event, PartStartEvent):
-            if isinstance(event.part, ThinkingPart):
-                thinking_started = True
-                thinking_content = event.part.content
-                print()  # 换行
-                print(f"🤔 Thinking：{thinking_content}", end="", flush=True)
-            # elif isinstance(event.part, ToolCallPart):
-            #     if thinking_started:
-            #         print()  # 换行
-            #         thinking_started = False
-            #     print(f"🔧 调用tool：{event.part.tool_name}")
-        elif isinstance(event, PartDeltaEvent):
-            if isinstance(event.delta, ThinkingPartDelta) and thinking_started:
-                if event.delta.content_delta:
-                    thinking_content += event.delta.content_delta
-                    print(event.delta.content_delta, end="", flush=True)
-        elif isinstance(event, FunctionToolCallEvent):
-            if thinking_started:
-                print()  # 换行
-                thinking_started = False
-            print(f"🔧 调用tool：{event.part.tool_name}")
-        elif isinstance(event, FunctionToolResultEvent):
-            if thinking_started:
-                print()  # 换行
-                thinking_started = False
-            print(f"📤 tool返回：{event.result.content}")
-        elif isinstance(event, BuiltinToolCallEvent):
-            if thinking_started:
-                print()  # 换行
-                thinking_started = False
-            print(f"🔧 调用内置tool：{event.part.tool_name}")
-        elif isinstance(event, BuiltinToolResultEvent):
-            if thinking_started:
-                print()  # 换行
-                thinking_started = False
-            print(f"📤 内置tool返回：{event.result.content}")
-
-    # 流式显示文本内容
-    if thinking_started:
-        print()  # 换行
-        thinking_started = False
-
-
-async def server_run_stream():
+async def server_run_stream(session_id: str):
     # 初始化命令行输入处理器
     project_root = Path(__file__).parent
-    input_handler = InputHandler(project_root)
+    input_handler = InputHandler(project_root, session_id=session_id)
     input_handler.initialize()
     all_messages: list[ModelMessage] = input_handler.load_message_history()
 
@@ -178,61 +118,81 @@ async def server_run_stream():
 
                 # 在用户输入后加上"！"并返回
                 final_response_text = ""
+                run_result = None
+                thinking_started = False
 
-                async with agent.run_stream(
+                formatter.print_user_input(user_input)
+                formatter.print_blank_line()
+                formatter.print_rule()
+
+                async with agent.run_stream_events(
                     user_input,
                     deps=deps,
                     message_history=all_messages,
-                    event_stream_handler=event_stream_handler,
-                ) as result:
+                ) as stream:
+                    async for event in stream:
+                        if isinstance(event, PartStartEvent):
+                            if isinstance(event.part, ThinkingPart):
+                                thinking_started = True
+                                print()
+                                print(
+                                    f"🤔 Thinking：{event.part.content}",
+                                    end="",
+                                    flush=True,
+                                )
+                            elif isinstance(event.part, TextPart):
+                                if thinking_started:
+                                    print()
+                                    thinking_started = False
+                                if event.part.content:
+                                    final_response_text += event.part.content
+                                    formatter.add_chunk(event.part.content)
+                                    formatter.render_if_needed()
+                        elif isinstance(event, PartDeltaEvent):
+                            if (
+                                isinstance(event.delta, ThinkingPartDelta)
+                                and thinking_started
+                                and event.delta.content_delta
+                            ):
+                                print(event.delta.content_delta, end="", flush=True)
+                            elif isinstance(event.delta, TextPartDelta):
+                                if thinking_started:
+                                    print()
+                                    thinking_started = False
+                                if event.delta.content_delta:
+                                    final_response_text += event.delta.content_delta
+                                    formatter.add_chunk(event.delta.content_delta)
+                                    formatter.render_if_needed()
+                        elif isinstance(event, FunctionToolCallEvent):
+                            if thinking_started:
+                                print()
+                                thinking_started = False
+                            formatter.print_tool_call(event.part.tool_name)
+                        elif isinstance(event, FunctionToolResultEvent):
+                            if thinking_started:
+                                print()
+                                thinking_started = False
+                            formatter.print_tool_result(event.result.content)
+                        elif isinstance(event, BuiltinToolCallEvent):
+                            if thinking_started:
+                                print()
+                                thinking_started = False
+                            print(f"🔧 调用内置tool：{event.part.tool_name}")
+                        elif isinstance(event, BuiltinToolResultEvent):
+                            if thinking_started:
+                                print()
+                                thinking_started = False
+                            print(f"📤 内置tool返回：{event.result.content}")
+                        elif isinstance(event, AgentRunResultEvent):
+                            run_result = event.result
 
-                    # 处理历史消息
-                    for message in result.new_messages():
-                        for call in message.parts:
-                            if isinstance(call, ToolCallPart):
-                                formatter.print_tool_call(call.tool_name)
-                            elif isinstance(call, ToolReturnPart):
-                                formatter.print_tool_result(call.content)
-                            elif isinstance(call, SystemPromptPart):
-                                formatter.print_system_prompt(call.content)
-                            elif isinstance(call, UserPromptPart):
-                                formatter.print_user_input(call.content)
-                            elif isinstance(call, ThinkingPart):
-                                # 什么也不做，因为已经在 event_stream_handler 中处理了，此处打印只会在Think全部完成后打印内容，太慢
-                                pass
-                            elif isinstance(call, RetryPromptPart):
-                                # 处理重试提示，显示重试信息
-                                retry_info = f"🔄 重试工具：{call.tool_name or '未知'}"
-                                if isinstance(call.content, str):
-                                    formatter.console.print(
-                                        f"[dim]{retry_info} - {call.content}[/dim]"
-                                    )
-                                else:
-                                    formatter.console.print(f"[dim]{retry_info}[/dim]")
-                            else:
-                                formatter.print_unknown(type(call))
+                formatter.render_final()
+                formatter.reset()
 
-                    formatter.print_blank_line()
-                    formatter.print_rule()
+                if run_result is None:
+                    raise RuntimeError("Agent 流式运行未返回最终结果")
 
-                    """ 流式显示文本内容，使用 rich 美化输出 """
-                    async for message in result.stream_text(delta=True):
-                        final_response_text += message
-                        formatter.add_chunk(message)
-                        formatter.render_if_needed()
-                    # 最终渲染所有剩余内容
-                    formatter.render_final()
-                    # 重置格式化器缓冲区，避免下次对话时重复显示
-                    formatter.reset()
-
-                all_messages = all_messages + result.new_messages()
-                if final_response_text:
-                    all_messages.append(
-                        ModelResponse(
-                            parts=[TextPart(content=final_response_text)],
-                            model_name=agent.model.model_name,
-                        )
-                    )
+                all_messages = run_result.all_messages()
                 # readline 输入历史和 Pydantic AI 消息历史分别持久化。
                 input_handler.save_message_history(all_messages)
                 input_handler.save_history()

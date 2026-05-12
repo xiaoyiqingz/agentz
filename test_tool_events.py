@@ -4,6 +4,7 @@
 """
 
 import asyncio
+import uuid
 from server import server_run_stream
 
 
@@ -15,7 +16,7 @@ async def main():
     print("=" * 50)
 
     try:
-        await server_run_stream()
+        await server_run_stream(session_id=str(uuid.uuid7()))
     except KeyboardInterrupt:
         print("\n👋 再见！")
     except Exception as e:
@@ -24,4 +25,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
