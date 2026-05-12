@@ -24,7 +24,7 @@ from models.deepseek import model_deepseek
 from prompts.prompt import get_smart_assistant_prompt
 from tools.code_patcher import apply_patch
 from tools.code_reader import read_file_lines
-from tools.tools_registry import get_all_tools
+from tools.tools_registry import get_all_tools, get_all_toolsets
 from output_formatter import create_formatter
 from commands.builtin_commands import process_builtin_command, CommandType
 
@@ -40,6 +40,7 @@ class Deps:
 
 # 获取所有工具列表
 tools_list = get_all_tools()
+toolsets_list = get_all_toolsets()
 
 # 创建 Agent 实例
 agent_kwargs = {
@@ -49,6 +50,8 @@ agent_kwargs = {
 }
 if tools_list:
     agent_kwargs["tools"] = tools_list
+if toolsets_list:
+    agent_kwargs["toolsets"] = toolsets_list
 
 agent = Agent(**agent_kwargs)
 

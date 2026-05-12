@@ -7,6 +7,7 @@
 from typing import List, Any
 
 from pydantic_ai.tools import Tool
+from tools.mysql_mcp import get_all_mcp_toolsets
 from tools.time_tools import get_current_time
 from tools.web_search import get_tavily_search_tool, get_duckduckgo_search_tool
 from tools.weather_tools import get_weather
@@ -47,3 +48,10 @@ def get_all_tools() -> List[Any]:
     # 可以在这里添加更多工具...
 
     return tools_list
+
+
+def get_all_toolsets() -> List[Any]:
+    """
+    获取所有可用的外部 toolsets，例如 MCP servers。
+    """
+    return get_all_mcp_toolsets()
