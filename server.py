@@ -98,7 +98,9 @@ async def server_run_stream(session_id: str):
                 user_input = formatter.ask_input()
 
                 # 处理内置命令
-                is_builtin, result, command_type = process_builtin_command(user_input)
+                is_builtin, result, command_type = process_builtin_command(
+                    user_input, session_id=session_id
+                )
                 if is_builtin:
                     if command_type == CommandType.DIRECT:
                         # 直接处理型命令：显示结果并等待用户继续输入

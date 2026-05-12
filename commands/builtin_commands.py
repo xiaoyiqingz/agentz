@@ -6,7 +6,6 @@
 2. 转换型：如 time, date - 将命令转换为用户输入传给 agent
 """
 
-import sys
 from typing import Optional, Tuple
 from enum import Enum
 
@@ -19,7 +18,9 @@ class CommandType(Enum):
     NONE = "none"  # 非内置命令
 
 
-def process_builtin_command(user_input: str) -> Tuple[bool, Optional[str], CommandType]:
+def process_builtin_command(
+    user_input: str, session_id: str | None = None
+) -> Tuple[bool, Optional[str], CommandType]:
     """
     处理内置命令
 
@@ -54,7 +55,10 @@ def process_builtin_command(user_input: str) -> Tuple[bool, Optional[str], Comma
 
     # 检查直接处理型命令
     if command in direct_commands:
-        is_processed, result = direct_commands[command]()
+        if command in {"exit", "quit", "q"}:
+            is_processed, result = _handle_exit(session_id)
+        else:
+            is_processed, result = direct_commands[command]()
         return is_processed, result, CommandType.DIRECT
 
     # 检查转换型命令
@@ -66,13 +70,16 @@ def process_builtin_command(user_input: str) -> Tuple[bool, Optional[str], Comma
     return False, None, CommandType.NONE
 
 
-def _handle_exit() -> Tuple[bool, None]:
+def _handle_exit(session_id: str | None = None) -> Tuple[bool, None]:
     """处理退出命令
     
     注意：不再直接调用 sys.exit(0)，而是返回标记让调用者处理退出逻辑
     这样可以确保在退出前保存历史记录等清理工作
     """
-    print("程序即将退出，再见！")
+    if session_id:
+        print(f"程序即将退出，再见！当前 session: {session_id}")
+    else:
+        print("程序即将退出，再见！")
     # 不再直接调用 sys.exit(0)，让调用者处理退出逻辑
     return True, None
 
