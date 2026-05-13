@@ -7,7 +7,7 @@
 from typing import List, Any
 
 from pydantic_ai.tools import Tool
-from tools.mysql_mcp import get_all_mcp_toolsets
+from tools.mcp_loader import get_all_mcp_toolsets
 from tools.time_tools import get_current_time
 from tools.web_search import get_tavily_search_tool, get_duckduckgo_search_tool
 from tools.weather_tools import get_weather
