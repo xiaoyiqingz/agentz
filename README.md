@@ -62,13 +62,13 @@ Example `mcp.json`:
 The app uses the third-party `pydantic-ai-skills` package to load agent skills from a standard directory layout:
 
 ```bash
-SKILLS_DIR=./skills
+SKILLS_DIR=.agents/skills
 ```
 
 Each skill should be stored as:
 
 ```text
-skills/
+.agents/skills/
   <skill_name>/
     SKILL.md
     REFERENCE.md        # optional
@@ -83,4 +83,4 @@ At runtime the skills toolset exposes:
 - `read_skill_resource`
 - `run_skill_script`
 
-The project wires this through `pydantic-ai-skills` `SkillsToolset`, with the skills directory coming from `SKILLS_DIR` and defaulting to `./skills`.
+The project wires this through `pydantic-ai-skills` `SkillsToolset`, with the skills directory coming from `SKILLS_DIR` and defaulting to `.agents/skills` under the current project.

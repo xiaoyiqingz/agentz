@@ -38,7 +38,9 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
         mcp_config_path=_resolve_path(
             values.get("MCP_CONFIG_PATH", "./mcp.json"), project_root
         ),
-        skills_dir=_resolve_path(values.get("SKILLS_DIR", "./skills"), project_root),
+        skills_dir=_resolve_path(
+            values.get("SKILLS_DIR", ".agents/skills"), project_root
+        ),
     )
 
 

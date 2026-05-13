@@ -14,6 +14,13 @@ class TestSkillsToolset(unittest.TestCase):
         skills_dir = get_skills_dir(settings)
         self.assertTrue(str(skills_dir).endswith("custom-skills"))
 
+    def test_default_skills_dir_uses_project_agents_directory(self):
+        settings = load_settings({})
+        self.assertEqual(
+            str(get_skills_dir(settings)),
+            str((Path.cwd() / ".agents/skills").resolve()),
+        )
+
     def test_skills_toolset_loads_standard_skill_directory(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             skills_root = Path(tmp_dir) / "skills"
