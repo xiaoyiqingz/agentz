@@ -7,13 +7,15 @@
 from typing import List, Any
 
 from pydantic_ai.tools import Tool
+from config import Settings
 from tools.mcp_loader import get_all_mcp_toolsets
+from tools.skills_toolset import get_skills_toolset
 from tools.time_tools import get_current_time
 from tools.web_search import get_tavily_search_tool, get_duckduckgo_search_tool
 from tools.weather_tools import get_weather
 
 
-def get_all_tools() -> List[Any]:
+def get_all_tools(settings: Settings) -> List[Any]:
     """
     获取所有可用的工具列表
 
@@ -36,7 +38,7 @@ def get_all_tools() -> List[Any]:
     tools_list.append(Tool(get_weather, max_retries=2))
 
     # 添加 Tavily 网页搜索工具（如果可用）
-    # tavily_tool = get_tavily_search_tool()
+    # tavily_tool = get_tavily_search_tool(settings)
     # if tavily_tool is not None:
     #     tools_list.append(tavily_tool)
 
@@ -50,8 +52,11 @@ def get_all_tools() -> List[Any]:
     return tools_list
 
 
-def get_all_toolsets() -> List[Any]:
+def get_all_toolsets(settings: Settings) -> List[Any]:
     """
-    获取所有可用的外部 toolsets，例如 MCP servers。
+    获取所有可用的外部 toolsets，例如 MCP servers 和 Agent Skills。
     """
-    return get_all_mcp_toolsets()
+    toolsets: List[Any] = []
+    toolsets.extend(get_all_mcp_toolsets(settings))
+    toolsets.append(get_skills_toolset(settings))
+    return toolsets

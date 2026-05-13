@@ -1,19 +1,13 @@
-from dotenv import load_dotenv
-from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
-import os
 
-load_dotenv()
+from config import Settings
 
-model_qwen = OpenAIChatModel(
-    os.getenv("QWEN_MODEL_NAME", "qwen3-coder-plus"),
-    provider=OpenAIProvider(
-        base_url=os.getenv("QWEN_BASE_URL"), api_key=os.getenv("QWEN_API_KEY")
-    ),
-)
 
-if __name__ == "__main__":
-    qwen_agent = Agent(model_qwen)
-    result = qwen_agent.run_sync("你好, 你是什么模型")
-    print(result)
+def build_qwen_model(settings: Settings) -> OpenAIChatModel:
+    return OpenAIChatModel(
+        settings.qwen_model_name,
+        provider=OpenAIProvider(
+            base_url=settings.qwen_base_url, api_key=settings.qwen_api_key
+        ),
+    )

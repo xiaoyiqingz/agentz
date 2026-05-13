@@ -5,13 +5,14 @@
 参考文档: https://docs.tavily.com/documentation/integrations/pydantic-ai
 """
 
-import os
 from typing import Optional
 from pydantic_ai.common_tools.tavily import tavily_search_tool
 from pydantic_ai.common_tools.duckduckgo import duckduckgo_search_tool
 
+from config import Settings
 
-def get_tavily_search_tool() -> Optional[object]:
+
+def get_tavily_search_tool(settings: Settings) -> Optional[object]:
     """
     获取 Tavily 网页搜索工具
 
@@ -25,7 +26,7 @@ def get_tavily_search_tool() -> Optional[object]:
         获取方式: https://docs.tavily.com/get-an-api-key
     """
     # 从环境变量读取 Tavily API Key
-    api_key = os.getenv("TAVILY_API_KEY")
+    api_key = settings.tavily_api_key
 
     if not api_key:
         # 如果未配置，返回 None（不启用网页搜索功能）
@@ -48,7 +49,7 @@ def get_duckduckgo_search_tool() -> Optional[object]:
     return duckduckgo_search_tool()
 
 
-def get_tavily_config() -> dict:
+def get_tavily_config(settings: Settings) -> dict:
     """
     获取 Tavily 的配置信息
 
@@ -57,7 +58,7 @@ def get_tavily_config() -> dict:
     Returns:
         dict: 包含配置信息的字典
     """
-    api_key = os.getenv("TAVILY_API_KEY")
+    api_key = settings.tavily_api_key
     return {
         "api_key_set": bool(api_key),
         "api_key_preview": (

@@ -17,10 +17,11 @@ import logfire
 from pathlib import Path
 from httpx import AsyncClient
 from dataclasses import dataclass
+from functools import lru_cache
 from input_handler import InputHandler
 from tools.coder import generate, modify
-from models.qwen import model_qwen
-from models.deepseek import model_deepseek
+from config import Settings
+from models.deepseek import build_deepseek_model
 from prompts.prompt import get_smart_assistant_prompt
 from tools.code_patcher import apply_patch
 from tools.code_reader import read_file_lines
@@ -28,60 +29,62 @@ from tools.tools_registry import get_all_tools, get_all_toolsets
 from output_formatter import create_formatter
 from commands.builtin_commands import process_builtin_command, CommandType
 
-# 配置 logfire 将日志输出到文件而不是控制台
-logfire.configure()
-logfire.instrument_pydantic_ai()
-
 
 @dataclass
 class Deps:
     client: AsyncClient
 
 
-# 获取所有工具列表
-tools_list = get_all_tools()
-toolsets_list = get_all_toolsets()
-
-# 创建 Agent 实例
-agent_kwargs = {
-    "model": model_deepseek,
-    "deps_type": Deps,
-    "system_prompt": get_smart_assistant_prompt(),  # 启用智能助手提示词，控制工具使用策略
-}
-if tools_list:
-    agent_kwargs["tools"] = tools_list
-if toolsets_list:
-    agent_kwargs["toolsets"] = toolsets_list
-
-agent = Agent(**agent_kwargs)
+@lru_cache(maxsize=1)
+def configure_logfire() -> None:
+    logfire.configure()
+    logfire.instrument_pydantic_ai()
 
 
-@agent.tool
-async def read_code_file(
-    ctx: RunContext[Deps], file_path: str, start_line: int, end_line: int
-) -> str:
-    return read_file_lines(file_path, start_line, end_line)
+def create_agent(settings: Settings) -> Agent:
+    tools_list = get_all_tools(settings)
+    toolsets_list = get_all_toolsets(settings)
+
+    agent_kwargs = {
+        "model": build_deepseek_model(settings),
+        "deps_type": Deps,
+        "system_prompt": get_smart_assistant_prompt(),
+    }
+    if tools_list:
+        agent_kwargs["tools"] = tools_list
+    if toolsets_list:
+        agent_kwargs["toolsets"] = toolsets_list
+
+    agent = Agent(**agent_kwargs)
+
+    @agent.tool
+    async def read_code_file(
+        ctx: RunContext[Deps], file_path: str, start_line: int, end_line: int
+    ) -> str:
+        return read_file_lines(file_path, start_line, end_line)
+
+    @agent.tool
+    async def apply_code_patch(
+        ctx: RunContext[Deps], file_path: str, patch_string: str
+    ) -> str:
+        return apply_patch(patch_string, file_path)
+
+    @agent.tool
+    async def check_and_modify_code(
+        ctx: RunContext[Deps], code_string: str, file_path: str, begin_line: int = 1
+    ) -> str:
+        return await modify(settings, code_string, file_path, begin_line)
+
+    @agent.tool
+    async def generate_code(ctx: RunContext[Deps], text: str) -> str:
+        return await generate(settings, text)
+
+    return agent
 
 
-@agent.tool
-async def apply_code_patch(
-    ctx: RunContext[Deps], file_path: str, patch_string: str
-) -> str:
-    return apply_patch(patch_string, file_path)
-
-
-@agent.tool
-async def check_and_modify_code(
-    ctx: RunContext[Deps], code_string: str, file_path: str, begin_line: int = 1
-) -> str:
-    return await modify(code_string, file_path, begin_line)
-
-
-@agent.tool
-async def generate_code(ctx: RunContext[Deps], text: str) -> str:
-    return await generate(text)
-
-async def server_run_stream(session_id: str):
+async def server_run_stream(settings: Settings, session_id: str):
+    configure_logfire()
+    agent = create_agent(settings)
     # 初始化命令行输入处理器
     project_root = Path(__file__).parent
     input_handler = InputHandler(project_root, session_id=session_id)
@@ -211,7 +214,9 @@ async def server_run_stream(session_id: str):
             raise
 
 
-async def server_run():
+async def server_run(settings: Settings):
+    configure_logfire()
+    agent = create_agent(settings)
     async with AsyncClient() as client:
         logfire.instrument_httpx(client, capture_all=True)
         deps = Deps(client=client)

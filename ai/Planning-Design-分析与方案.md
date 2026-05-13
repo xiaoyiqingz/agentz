@@ -84,7 +84,7 @@ Planner Agent（生成结构化计划）
 
 3. **代码组织**
    - ✅ 模块化设计（tools、models、prompts 分离）
-   - ✅ Agent 创建工具（`anget.py`）
+   - ✅ Agent 创建工具（`agent_factory.py`）
 
 #### ❌ 缺失的能力
 

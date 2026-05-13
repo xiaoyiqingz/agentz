@@ -8,6 +8,7 @@ dependencies = [
     "griffelib==2.0.0",
     "httpx[socks]>=0.28.1",
     "pydantic-ai==1.92.0",
+    "pydantic-ai-skills==0.5.1",
     "pydantic-ai-slim[duckduckgo,tavily]==1.92.0",
     "python-dotenv>=1.1.1",
     "rich>=13.0.0",

@@ -1,12 +1,9 @@
-import os
 from typing import Optional, Any, Type
-from dotenv import load_dotenv
 from pydantic_ai import Agent, toolsets
 from pydantic_ai.models.openai import OpenAIModel
 from pydantic_ai.providers.ollama import OllamaProvider
 
-# 加载 .env 文件中的环境变量
-load_dotenv()
+from config import Settings
 
 
 def create_agent(
@@ -17,6 +14,7 @@ def create_agent(
     output_type: Optional[Type[Any]] = None,
     instructions: Optional[str] = None,
     toolsets: Optional[list[toolsets.AbstractToolset]] = None,
+    settings: Optional[Settings] = None,
 ) -> Agent:
     """
     创建统一的 Agent 实例
@@ -31,12 +29,14 @@ def create_agent(
     Returns:
         Agent: 配置好的 Agent 实例
     """
-    # 从环境变量中获取默认值
-    if model_name is None:
-        model_name = os.getenv("OLLAMA_MODEL", "deepseek-r1:7b")
+    if settings is not None:
+        if model_name is None:
+            model_name = settings.ollama_model_ds
+        if ollama_base_url is None:
+            ollama_base_url = settings.ollama_base_url
 
-    if ollama_base_url is None:
-        ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
+    if model_name is None or ollama_base_url is None:
+        raise ValueError("model_name 和 ollama_base_url 未提供，且未传入 settings")
 
     # 创建模型
     model = OpenAIModel(

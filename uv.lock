@@ -22,6 +22,7 @@ dependencies = [
     { name = "griffelib" },
     { name = "httpx", extra = ["socks"] },
     { name = "pydantic-ai" },
+    { name = "pydantic-ai-skills" },
     { name = "pydantic-ai-slim", extra = ["duckduckgo", "tavily"] },
     { name = "python-dotenv" },
     { name = "rich" },
@@ -32,6 +33,7 @@ requires-dist = [
     { name = "griffelib", specifier = "==2.0.0" },
     { name = "httpx", extras = ["socks"], specifier = ">=0.28.1" },
     { name = "pydantic-ai", specifier = "==1.92.0" },
+    { name = "pydantic-ai-skills", specifier = "==0.5.1" },
     { name = "pydantic-ai-slim", extras = ["duckduckgo", "tavily"], specifier = "==1.92.0" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "rich", specifier = ">=13.0.0" },
@@ -1735,6 +1737,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/7e/bb/aadc89d06708d32337093929a8d13a28c88b0bf4d981da6102e34bb26efc/pydantic_ai-1.92.0.tar.gz", hash = "sha256:03efedd359caa53ca30ed4f65275dd40b4c9aa24e854ddde6a32903756c779f6", size = 13146, upload-time = "2026-05-08T01:30:30.232Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b2/2a/725da0d788dd6bb106d568169ae567766fe6d35d47c9c90d0b49753fd698/pydantic_ai-1.92.0-py3-none-any.whl", hash = "sha256:4d0f8ad989c89cf503e12e0889dd876b8abf2ccf9b54f01aabe6e89c95905a91", size = 7580, upload-time = "2026-05-08T01:30:21.862Z" },
+]
+
+[[package]]
+name = "pydantic-ai-skills"
+version = "0.5.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "pydantic-ai-slim" },
+    { name = "pyyaml" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0a/e3/6069c92225b24cf97a5128e308dc32056c0ea016d16034e06f2c578e1fe3/pydantic_ai_skills-0.5.1.tar.gz", hash = "sha256:2375783fcf554581a9eeca834a4c44bfd503f7e8a67e58b771556e0ba61892cb", size = 9071286, upload-time = "2026-03-06T00:09:52.305Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a9/22/dc2a13f1525c69460033811f48dafe2c26c6ec4606116ce085d671ae5666/pydantic_ai_skills-0.5.1-py3-none-any.whl", hash = "sha256:386fded552d646bf02af0550c0bc8ed8c1e3f0a24a532219c0e2232e78b4746c", size = 47942, upload-time = "2026-03-06T00:09:50.217Z" },
 ]
 
 [[package]]
