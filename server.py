@@ -29,6 +29,13 @@ from tools.tools_registry import get_all_tools, get_all_toolsets
 from output_formatter import create_formatter
 from commands.builtin_commands import process_builtin_command, CommandType
 
+HIDDEN_TOOL_RESULT_NAMES = {
+    "list_skills",
+    "load_skill",
+    "read_skill_resource",
+    "run_skill_script",
+}
+
 
 @dataclass
 class Deps:
@@ -143,11 +150,7 @@ async def server_run_stream(settings: Settings, session_id: str):
                             if isinstance(event.part, ThinkingPart):
                                 thinking_started = True
                                 print()
-                                print(
-                                    f"🤔 Thinking：{event.part.content}",
-                                    end="",
-                                    flush=True,
-                                )
+                                print("正在分析...", end="", flush=True)
                             elif isinstance(event.part, TextPart):
                                 if thinking_started:
                                     print()
@@ -160,9 +163,9 @@ async def server_run_stream(settings: Settings, session_id: str):
                             if (
                                 isinstance(event.delta, ThinkingPartDelta)
                                 and thinking_started
-                                and event.delta.content_delta
                             ):
-                                print(event.delta.content_delta, end="", flush=True)
+                                # 推理仍然进行，但不向用户暴露具体 thinking 文本。
+                                pass
                             elif isinstance(event.delta, TextPartDelta):
                                 if thinking_started:
                                     print()
@@ -180,7 +183,8 @@ async def server_run_stream(settings: Settings, session_id: str):
                             if thinking_started:
                                 print()
                                 thinking_started = False
-                            formatter.print_tool_result(event.result.content)
+                            if event.result.tool_name not in HIDDEN_TOOL_RESULT_NAMES:
+                                formatter.print_tool_result(event.result.content)
                         elif isinstance(event, BuiltinToolCallEvent):
                             if thinking_started:
                                 print()
