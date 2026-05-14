@@ -107,8 +107,8 @@ async def server_run_stream(settings: Settings, session_id: str):
 
         try:
             while True:
-                # 等待用户输入（readline 会自动增强 input() 的功能，rich 美化提示符）
-                user_input = formatter.ask_input()
+                # 等待用户输入，交由 prompt_toolkit 负责稳定的命令行编辑体验。
+                user_input = await input_handler.read_input()
 
                 # 处理内置命令
                 is_builtin, result, command_type = process_builtin_command(

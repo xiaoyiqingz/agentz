@@ -21,6 +21,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "griffelib" },
     { name = "httpx", extra = ["socks"] },
+    { name = "prompt-toolkit" },
     { name = "pydantic-ai" },
     { name = "pydantic-ai-skills" },
     { name = "pydantic-ai-slim", extra = ["duckduckgo", "tavily"] },
@@ -32,6 +33,7 @@ dependencies = [
 requires-dist = [
     { name = "griffelib", specifier = "==2.0.0" },
     { name = "httpx", extras = ["socks"], specifier = ">=0.28.1" },
+    { name = "prompt-toolkit", specifier = ">=3.0.52" },
     { name = "pydantic-ai", specifier = "==1.92.0" },
     { name = "pydantic-ai-skills", specifier = "==0.5.1" },
     { name = "pydantic-ai-slim", extras = ["duckduckgo", "tavily"], specifier = "==1.92.0" },

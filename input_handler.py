@@ -1,12 +1,13 @@
 """
 命令行输入处理器模块
 
-封装 readline 功能，提供增强的命令行输入体验：
-- 支持中文删除显示
+优先使用 prompt_toolkit 提供现代 CLI 输入体验：
+- 提示符不会被删除操作擦掉
 - 历史记录管理
-- 自动保存和加载历史记录
+- 自动建议与更稳定的行编辑
 """
 
+import asyncio
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -14,6 +15,13 @@ from typing import Optional
 
 from pydantic_ai import ModelMessagesTypeAdapter
 from pydantic_ai.messages import ModelMessage
+from prompt_toolkit import PromptSession
+from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
+from prompt_toolkit.formatted_text import HTML
+from prompt_toolkit.history import FileHistory
+
+
+PROMPT_HTML = HTML("<ansibrightcyan>&gt;</ansibrightcyan> ")
 
 
 def _import_readline() -> Optional[object]:
@@ -39,7 +47,7 @@ def _import_readline() -> Optional[object]:
 
 
 class InputHandler:
-    """命令行输入处理器，封装 readline 功能"""
+    """命令行输入处理器，封装 prompt_toolkit 与历史记录管理"""
 
     def __init__(self, project_root: Path, session_id: str):
         """
@@ -55,6 +63,7 @@ class InputHandler:
         self.session_dir: Optional[Path] = None
         self.history_file: Optional[Path] = None
         self.message_history_file: Optional[Path] = None
+        self.prompt_session: Optional[PromptSession[str]] = None
         self._initialized = False
 
     def is_available(self) -> bool:
@@ -68,12 +77,12 @@ class InputHandler:
 
     def initialize(self) -> None:
         """
-        初始化 readline 功能
+        初始化输入功能
 
         包括：
         - 设置历史记录文件路径
-        - 加载历史记录
-        - 配置 readline 选项
+        - 初始化 prompt_toolkit session
+        - 在必要时回退到 readline
         """
         # 为每个 session 使用独立目录，方便恢复与区分。
         data_dir = self.project_root / "data" / "sessions"
@@ -82,6 +91,16 @@ class InputHandler:
         self.session_dir.mkdir(parents=True, exist_ok=True)
         self.history_file = self.session_dir / "agentz_history"
         self.message_history_file = self.session_dir / "agentz_message_history.json"
+
+        if self.history_file is not None:
+            self.prompt_session = PromptSession(
+                history=FileHistory(str(self.history_file)),
+                auto_suggest=AutoSuggestFromHistory(),
+                complete_while_typing=False,
+                reserve_space_for_menu=0,
+            )
+            self._initialized = True
+            return
 
         if not self.is_available():
             self._initialized = True
@@ -112,6 +131,16 @@ class InputHandler:
                 )
 
         self._initialized = True
+
+    async def read_input(self) -> str:
+        """
+        读取一行用户输入。
+
+        优先使用 prompt_toolkit，以保证提示符稳定、支持常见 CLI 交互体验。
+        """
+        if self.prompt_session is not None:
+            return await self.prompt_session.prompt_async(PROMPT_HTML)
+        return await asyncio.to_thread(input, "> ")
 
     def load_message_history(self) -> list[ModelMessage]:
         """
@@ -156,10 +185,12 @@ class InputHandler:
 
     def save_history(self) -> None:
         """
-        保存 readline 历史记录到文件
+        保存输入历史记录到文件
 
-        如果 readline 不可用或未初始化，则不执行任何操作。
+        prompt_toolkit 的 FileHistory 会自动落盘，这里仅兼容 readline 回退路径。
         """
+        if self.prompt_session is not None:
+            return
         if not self.is_available() or self.history_file is None:
             return
 

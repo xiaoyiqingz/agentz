@@ -5,9 +5,8 @@
 """
 
 from rich.console import Console
-from rich.markdown import Markdown
 from rich.live import Live
-from rich.prompt import Prompt
+from rich.markdown import Markdown
 from typing import Optional, Union
 import time
 
@@ -231,18 +230,6 @@ class UnifiedFormatter:
             ] = LiveMarkdownFormatter()
         else:
             self.markdown_formatter = SimpleMarkdownFormatter(show_stream=True)
-
-    def ask_input(self, prompt: str = "[bold cyan]>[/bold cyan]") -> str:
-        """
-        获取用户输入（替代 Prompt.ask）
-
-        Args:
-            prompt: 提示符文本，支持 rich markup
-
-        Returns:
-            用户输入的字符串
-        """
-        return Prompt.ask(prompt)
 
     def print_tool_call(self, tool_name: str) -> None:
         """
