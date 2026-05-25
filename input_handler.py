@@ -8,13 +8,9 @@
 """
 
 import asyncio
-import sys
-from collections.abc import Sequence
 from pathlib import Path
 from typing import Optional
 
-from pydantic_ai import ModelMessagesTypeAdapter
-from pydantic_ai.messages import ModelMessage
 from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.formatted_text import HTML
@@ -62,7 +58,6 @@ class InputHandler:
         self.readline_module = _import_readline()
         self.session_dir: Optional[Path] = None
         self.history_file: Optional[Path] = None
-        self.message_history_file: Optional[Path] = None
         self.prompt_session: Optional[PromptSession[str]] = None
         self._initialized = False
 
@@ -90,7 +85,6 @@ class InputHandler:
         # 确保目录存在
         self.session_dir.mkdir(parents=True, exist_ok=True)
         self.history_file = self.session_dir / "agentz_history"
-        self.message_history_file = self.session_dir / "agentz_message_history.json"
 
         if self.history_file is not None:
             self.prompt_session = PromptSession(
@@ -141,47 +135,6 @@ class InputHandler:
         if self.prompt_session is not None:
             return await self.prompt_session.prompt_async(PROMPT_HTML)
         return await asyncio.to_thread(input, "> ")
-
-    def load_message_history(self) -> list[ModelMessage]:
-        """
-        加载 Pydantic AI 消息历史。
-
-        Returns:
-            list[ModelMessage]: 反序列化后的消息历史，失败时返回空列表。
-        """
-        if self.message_history_file is None:
-            return []
-
-        try:
-            if not self.message_history_file.exists():
-                return []
-            return ModelMessagesTypeAdapter.validate_json(
-                self.message_history_file.read_bytes()
-            )
-        except Exception as e:
-            print(f"警告：无法加载消息历史文件: {e}", file=sys.stderr)
-            return []
-
-    def save_message_history(self, messages: Sequence[ModelMessage]) -> None:
-        """
-        保存 Pydantic AI 消息历史到文件。
-
-        Args:
-            messages: 需要持久化的消息列表。
-        """
-        if self.message_history_file is None:
-            return
-
-        try:
-            self.message_history_file.parent.mkdir(parents=True, exist_ok=True)
-            self.message_history_file.write_bytes(
-                ModelMessagesTypeAdapter.dump_json(list(messages), indent=2)
-            )
-        except Exception as e:
-            print(
-                f"\n警告：无法保存消息历史到 {self.message_history_file}: {e}",
-                file=sys.stderr,
-            )
 
     def save_history(self) -> None:
         """

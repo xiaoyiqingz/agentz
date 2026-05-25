@@ -16,11 +16,15 @@ from pydantic_ai.run import AgentRunResultEvent
 import logfire
 from pathlib import Path
 from httpx import AsyncClient
-from dataclasses import dataclass
 from functools import lru_cache
 from input_handler import InputHandler
 from tools.coder import generate, modify
 from config import Settings
+from context.deps import Deps
+from context.history_processors import build_history_processors
+from context.models import SessionMeta, utc_now
+from context.session_store import SessionStore
+from context.summarizer import build_summarizer_agent, maybe_refresh_summary
 from models.deepseek import build_deepseek_model
 from prompts.prompt import get_smart_assistant_prompt
 from tools.code_patcher import apply_patch
@@ -43,12 +47,6 @@ TOOL_STATUS_LABELS = {
     "run_skill_script": "正在执行技能脚本",
 }
 
-
-@dataclass
-class Deps:
-    client: AsyncClient
-
-
 @lru_cache(maxsize=1)
 def configure_logfire() -> None:
     logfire.configure()
@@ -63,6 +61,7 @@ def create_agent(settings: Settings) -> Agent:
         "model": build_deepseek_model(settings),
         "deps_type": Deps,
         "system_prompt": get_smart_assistant_prompt(),
+        "history_processors": build_history_processors(settings),
     }
     if tools_list:
         agent_kwargs["tools"] = tools_list
@@ -99,11 +98,36 @@ def create_agent(settings: Settings) -> Agent:
 async def server_run_stream(settings: Settings, session_id: str):
     configure_logfire()
     agent = create_agent(settings)
+    summarizer = build_summarizer_agent(settings)
     # 初始化命令行输入处理器
     project_root = Path(__file__).parent
     input_handler = InputHandler(project_root, session_id=session_id)
     input_handler.initialize()
-    all_messages: list[ModelMessage] = input_handler.load_message_history()
+    session_store = SessionStore(project_root, session_id=session_id)
+    all_messages: list[ModelMessage] = session_store.load_message_history()
+    conversation_id = session_id
+    session_meta = session_store.load_meta()
+    now = utc_now()
+    if session_meta is None:
+        session_store.save_meta(
+            SessionMeta(
+                session_id=session_id,
+                conversation_id=conversation_id,
+                created_at=now,
+                updated_at=now,
+                resumed=bool(all_messages),
+            )
+        )
+    else:
+        session_store.save_meta(
+            session_meta.model_copy(
+                update={
+                    "conversation_id": conversation_id,
+                    "updated_at": now,
+                    "resumed": session_meta.resumed or bool(all_messages),
+                }
+            )
+        )
 
     # 创建统一的格式化器
     # 部分终端对 rich Live 的重绘兼容性较差，会把每次刷新都落成新行。
@@ -112,7 +136,14 @@ async def server_run_stream(settings: Settings, session_id: str):
 
     async with AsyncClient() as client:
         logfire.instrument_httpx(client, capture_all=True)
-        deps = Deps(client=client)
+        deps = Deps(
+            client=client,
+            session_id=session_id,
+            conversation_id=conversation_id,
+            project_root=project_root,
+            settings=settings,
+            session_store=session_store,
+        )
 
         try:
             while True:
@@ -132,7 +163,7 @@ async def server_run_stream(settings: Settings, session_id: str):
                             # 检查是否是退出命令（exit/quit/q）
                             if user_input.strip().lower() in ("exit", "quit", "q"):
                                 # 退出前保存历史记录
-                                input_handler.save_message_history(all_messages)
+                                session_store.save_message_history(all_messages)
                                 input_handler.save_history()
                                 # 退出循环（程序会在 async with 块结束后自然退出）
                                 break
@@ -154,6 +185,8 @@ async def server_run_stream(settings: Settings, session_id: str):
                         user_input,
                         deps=deps,
                         message_history=all_messages,
+                        conversation_id=conversation_id,
+                        metadata={"session_id": session_id},
                     ) as stream:
                         async for event in stream:
                             if isinstance(event, PartStartEvent):
@@ -207,7 +240,11 @@ async def server_run_stream(settings: Settings, session_id: str):
 
                     all_messages = run_result.all_messages()
                     # readline 输入历史和 Pydantic AI 消息历史分别持久化。
-                    input_handler.save_message_history(all_messages)
+                    session_store.save_message_history(all_messages)
+                    try:
+                        await maybe_refresh_summary(summarizer, deps, all_messages)
+                    except Exception as exc:
+                        print(f"\n警告：刷新会话摘要失败：{exc}\n")
                     input_handler.save_history()
 
                     print()  # 空行分隔
@@ -216,13 +253,13 @@ async def server_run_stream(settings: Settings, session_id: str):
                 except Exception as exc:
                     formatter.reset()
                     print(f"\n本轮处理失败，CLI 将继续运行：{exc}\n")
-                    input_handler.save_message_history(all_messages)
+                    session_store.save_message_history(all_messages)
                     input_handler.save_history()
                     continue
 
         except (KeyboardInterrupt, EOFError):
             # 保存历史记录
-            input_handler.save_message_history(all_messages)
+            session_store.save_message_history(all_messages)
             input_handler.cleanup()
             raise
 
@@ -230,13 +267,35 @@ async def server_run_stream(settings: Settings, session_id: str):
 async def server_run(settings: Settings):
     configure_logfire()
     agent = create_agent(settings)
+    summarizer = build_summarizer_agent(settings)
+    project_root = Path(__file__).parent
+    session_id = "sync-session"
+    conversation_id = session_id
+    session_store = SessionStore(project_root, session_id=session_id)
     async with AsyncClient() as client:
         logfire.instrument_httpx(client, capture_all=True)
-        deps = Deps(client=client)
+        deps = Deps(
+            client=client,
+            session_id=session_id,
+            conversation_id=conversation_id,
+            project_root=project_root,
+            settings=settings,
+            session_store=session_store,
+        )
 
         while True:
             user_input = input("> ")
 
-            result = agent.run_sync(user_input, deps=deps)
+            result = agent.run_sync(
+                user_input,
+                deps=deps,
+                conversation_id=conversation_id,
+                metadata={"session_id": session_id},
+            )
+            session_store.save_message_history(result.all_messages())
+            try:
+                await maybe_refresh_summary(summarizer, deps, result.all_messages())
+            except Exception as exc:
+                print(f"\n警告：刷新会话摘要失败：{exc}\n")
             print(f"返回结果: {result.output}")
             print()

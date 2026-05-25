@@ -5,12 +5,12 @@
 """
 
 from pydantic_ai import RunContext, ModelRetry
-from typing import Any
 from urllib.parse import quote
 import httpx
+from context.deps import Deps
 
 
-async def get_weather(ctx: RunContext[Any], city: str) -> str:
+async def get_weather(ctx: RunContext[Deps], city: str) -> str:
     """
     获取指定城市的天气信息
 

@@ -18,6 +18,10 @@ class Settings:
     tavily_api_key: str | None
     mcp_config_path: Path
     skills_dir: Path
+    context_keep_recent_turns: int
+    context_enable_summary: bool
+    context_summary_trigger_turns: int
+    context_summary_max_turns: int
 
 
 def load_settings(env: dict[str, str] | None = None) -> Settings:
@@ -40,6 +44,27 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
         ),
         skills_dir=_resolve_path(
             values.get("SKILLS_DIR", ".agents/skills"), project_root
+        ),
+        context_keep_recent_turns=int(
+            values.get(
+                "CONTEXT_KEEP_RECENT_TURNS",
+                values.get("CONTEXT_KEEP_RECENT_MESSAGES", "12"),
+            )
+        ),
+        context_enable_summary=values.get(
+            "CONTEXT_ENABLE_SUMMARY", "true"
+        ).lower() not in {"0", "false", "no", "off"},
+        context_summary_trigger_turns=int(
+            values.get(
+                "CONTEXT_SUMMARY_TRIGGER_TURNS",
+                values.get("CONTEXT_SUMMARY_TRIGGER_MESSAGES", "30"),
+            )
+        ),
+        context_summary_max_turns=int(
+            values.get(
+                "CONTEXT_SUMMARY_MAX_TURNS",
+                values.get("CONTEXT_SUMMARY_MAX_MESSAGES", "24"),
+            )
         ),
     )
 
