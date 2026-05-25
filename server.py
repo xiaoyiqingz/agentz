@@ -36,6 +36,13 @@ HIDDEN_TOOL_RESULT_NAMES = {
     "run_skill_script",
 }
 
+TOOL_STATUS_LABELS = {
+    "list_skills": "正在检查可用技能",
+    "load_skill": "正在加载技能",
+    "read_skill_resource": "正在读取技能资料",
+    "run_skill_script": "正在执行技能脚本",
+}
+
 
 @dataclass
 class Deps:
@@ -99,7 +106,9 @@ async def server_run_stream(settings: Settings, session_id: str):
     all_messages: list[ModelMessage] = input_handler.load_message_history()
 
     # 创建统一的格式化器
-    formatter = create_formatter()
+    # 部分终端对 rich Live 的重绘兼容性较差，会把每次刷新都落成新行。
+    # 这里先关闭 Live 流式渲染，只保留最终一次性输出。
+    formatter = create_formatter(use_live=False)
 
     async with AsyncClient() as client:
         logfire.instrument_httpx(client, capture_all=True)
@@ -107,109 +116,109 @@ async def server_run_stream(settings: Settings, session_id: str):
 
         try:
             while True:
-                # 等待用户输入，交由 prompt_toolkit 负责稳定的命令行编辑体验。
-                user_input = await input_handler.read_input()
+                try:
+                    # 等待用户输入，交由 prompt_toolkit 负责稳定的命令行编辑体验。
+                    user_input = await input_handler.read_input()
 
-                # 处理内置命令
-                is_builtin, result, command_type = process_builtin_command(
-                    user_input, session_id=session_id
-                )
-                if is_builtin:
-                    if command_type == CommandType.DIRECT:
-                        # 直接处理型命令：显示结果并等待用户继续输入
-                        if result is not None:
-                            print(result)
-                        # 检查是否是退出命令（exit/quit/q）
-                        if user_input.strip().lower() in ("exit", "quit", "q"):
-                            # 退出前保存历史记录
-                            input_handler.save_message_history(all_messages)
-                            input_handler.save_history()
-                            # 退出循环（程序会在 async with 块结束后自然退出）
-                            break
-                        continue
-                    elif command_type == CommandType.CONVERT:
-                        # 转换型命令：将转换后的内容作为用户输入传给 agent
-                        user_input = result
+                    # 处理内置命令
+                    is_builtin, result, command_type = process_builtin_command(
+                        user_input, session_id=session_id
+                    )
+                    if is_builtin:
+                        if command_type == CommandType.DIRECT:
+                            # 直接处理型命令：显示结果并等待用户继续输入
+                            if result is not None:
+                                print(result)
+                            # 检查是否是退出命令（exit/quit/q）
+                            if user_input.strip().lower() in ("exit", "quit", "q"):
+                                # 退出前保存历史记录
+                                input_handler.save_message_history(all_messages)
+                                input_handler.save_history()
+                                # 退出循环（程序会在 async with 块结束后自然退出）
+                                break
+                            continue
+                        elif command_type == CommandType.CONVERT:
+                            # 转换型命令：将转换后的内容作为用户输入传给 agent
+                            user_input = result
 
-                # 在用户输入后加上"！"并返回
-                final_response_text = ""
-                run_result = None
-                thinking_started = False
+                    # 在用户输入后加上"！"并返回
+                    final_response_text = ""
+                    run_result = None
 
-                formatter.print_user_input(user_input)
-                formatter.print_blank_line()
-                formatter.print_rule()
+                    formatter.print_user_input(user_input)
+                    formatter.print_blank_line()
+                    formatter.print_rule()
+                    formatter.print_status("正在分析问题...")
 
-                async with agent.run_stream_events(
-                    user_input,
-                    deps=deps,
-                    message_history=all_messages,
-                ) as stream:
-                    async for event in stream:
-                        if isinstance(event, PartStartEvent):
-                            if isinstance(event.part, ThinkingPart):
-                                thinking_started = True
-                                print()
-                                print("正在分析...", end="", flush=True)
-                            elif isinstance(event.part, TextPart):
-                                if thinking_started:
-                                    print()
-                                    thinking_started = False
-                                if event.part.content:
-                                    final_response_text += event.part.content
-                                    formatter.add_chunk(event.part.content)
-                                    formatter.render_if_needed()
-                        elif isinstance(event, PartDeltaEvent):
-                            if (
-                                isinstance(event.delta, ThinkingPartDelta)
-                                and thinking_started
-                            ):
-                                # 推理仍然进行，但不向用户暴露具体 thinking 文本。
+                    async with agent.run_stream_events(
+                        user_input,
+                        deps=deps,
+                        message_history=all_messages,
+                    ) as stream:
+                        async for event in stream:
+                            if isinstance(event, PartStartEvent):
+                                if isinstance(event.part, ThinkingPart):
+                                    # 并非所有模型都会暴露 ThinkingPart，这里不再依赖它驱动状态提示。
+                                    pass
+                                elif isinstance(event.part, TextPart):
+                                    if event.part.content:
+                                        final_response_text += event.part.content
+                                        formatter.add_chunk(event.part.content)
+                                        formatter.render_if_needed()
+                            elif isinstance(event, PartDeltaEvent):
+                                if isinstance(event.delta, ThinkingPartDelta):
+                                    # 推理仍然进行，但不向用户暴露具体 thinking 文本。
+                                    pass
+                                elif isinstance(event.delta, TextPartDelta):
+                                    if event.delta.content_delta:
+                                        final_response_text += (
+                                            event.delta.content_delta
+                                        )
+                                        formatter.add_chunk(
+                                            event.delta.content_delta
+                                        )
+                                        formatter.render_if_needed()
+                            elif isinstance(event, FunctionToolCallEvent):
+                                tool_name = event.part.tool_name
+                                status_text = TOOL_STATUS_LABELS.get(
+                                    tool_name, f"正在调用工具：{tool_name}"
+                                )
+                                formatter.print_status(status_text)
+                            elif isinstance(event, FunctionToolResultEvent):
+                                # 如需排查工具返回内容，可临时恢复这段输出。
+                                # if event.result.tool_name not in HIDDEN_TOOL_RESULT_NAMES:
+                                #     formatter.print_tool_result(event.result.content)
                                 pass
-                            elif isinstance(event.delta, TextPartDelta):
-                                if thinking_started:
-                                    print()
-                                    thinking_started = False
-                                if event.delta.content_delta:
-                                    final_response_text += event.delta.content_delta
-                                    formatter.add_chunk(event.delta.content_delta)
-                                    formatter.render_if_needed()
-                        elif isinstance(event, FunctionToolCallEvent):
-                            if thinking_started:
-                                print()
-                                thinking_started = False
-                            formatter.print_tool_call(event.part.tool_name)
-                        elif isinstance(event, FunctionToolResultEvent):
-                            if thinking_started:
-                                print()
-                                thinking_started = False
-                            if event.result.tool_name not in HIDDEN_TOOL_RESULT_NAMES:
-                                formatter.print_tool_result(event.result.content)
-                        elif isinstance(event, BuiltinToolCallEvent):
-                            if thinking_started:
-                                print()
-                                thinking_started = False
-                            print(f"🔧 调用内置tool：{event.part.tool_name}")
-                        elif isinstance(event, BuiltinToolResultEvent):
-                            if thinking_started:
-                                print()
-                                thinking_started = False
-                            print(f"📤 内置tool返回：{event.result.content}")
-                        elif isinstance(event, AgentRunResultEvent):
-                            run_result = event.result
+                            elif isinstance(event, BuiltinToolCallEvent):
+                                formatter.print_status(
+                                    f"正在调用内置工具：{event.part.tool_name}"
+                                )
+                            elif isinstance(event, BuiltinToolResultEvent):
+                                # print(f"📤 内置tool返回：{event.result.content}")
+                                pass
+                            elif isinstance(event, AgentRunResultEvent):
+                                run_result = event.result
 
-                formatter.render_final()
-                formatter.reset()
+                    formatter.render_final()
+                    formatter.reset()
 
-                if run_result is None:
-                    raise RuntimeError("Agent 流式运行未返回最终结果")
+                    if run_result is None:
+                        raise RuntimeError("Agent 流式运行未返回最终结果")
 
-                all_messages = run_result.all_messages()
-                # readline 输入历史和 Pydantic AI 消息历史分别持久化。
-                input_handler.save_message_history(all_messages)
-                input_handler.save_history()
+                    all_messages = run_result.all_messages()
+                    # readline 输入历史和 Pydantic AI 消息历史分别持久化。
+                    input_handler.save_message_history(all_messages)
+                    input_handler.save_history()
 
-                print()  # 空行分隔
+                    print()  # 空行分隔
+                except (KeyboardInterrupt, EOFError):
+                    raise
+                except Exception as exc:
+                    formatter.reset()
+                    print(f"\n本轮处理失败，CLI 将继续运行：{exc}\n")
+                    input_handler.save_message_history(all_messages)
+                    input_handler.save_history()
+                    continue
 
         except (KeyboardInterrupt, EOFError):
             # 保存历史记录

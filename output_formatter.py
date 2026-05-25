@@ -229,7 +229,16 @@ class UnifiedFormatter:
                 LiveMarkdownFormatter, SimpleMarkdownFormatter
             ] = LiveMarkdownFormatter()
         else:
-            self.markdown_formatter = SimpleMarkdownFormatter(show_stream=True)
+            # 非 Live 模式下仅输出最终结果，避免流式原文和最终渲染重复打印。
+            self.markdown_formatter = SimpleMarkdownFormatter(show_stream=False)
+
+    @staticmethod
+    def _to_plain_text(content: object) -> str:
+        """将任意对象安全转换为纯文本，避免格式化层再次抛错。"""
+        try:
+            return str(content)
+        except Exception:
+            return repr(content)
 
     def print_tool_call(self, tool_name: str) -> None:
         """
@@ -238,9 +247,12 @@ class UnifiedFormatter:
         Args:
             tool_name: 工具名称
         """
-        self.console.print(
-            f"[bold yellow]🔧 调用tool：[/bold yellow][cyan]{tool_name}[/cyan]"
-        )
+        try:
+            self.console.print(
+                f"[bold yellow]🔧 调用tool：[/bold yellow][cyan]{tool_name}[/cyan]"
+            )
+        except Exception:
+            print(f"🔧 调用tool：{self._to_plain_text(tool_name)}")
 
     def print_tool_result(self, content: str) -> None:
         """
@@ -249,9 +261,12 @@ class UnifiedFormatter:
         Args:
             content: 返回内容
         """
-        self.console.print(
-            f"[bold green]📤 tool返回：[/bold green][dim]{content}[/dim]"
-        )
+        plain_content = self._to_plain_text(content)
+        try:
+            self.console.print("[bold green]📤 tool返回：[/bold green]", end="")
+            self.console.print(plain_content, style="dim", markup=False)
+        except Exception:
+            print(f"📤 tool返回：{plain_content}")
 
     def print_system_prompt(self, content: str) -> None:
         """
@@ -260,9 +275,12 @@ class UnifiedFormatter:
         Args:
             content: 系统提示内容
         """
-        self.console.print(
-            f"[bold magenta]💬 系统提示：[/bold magenta][dim]{content}[/dim]"
-        )
+        plain_content = self._to_plain_text(content)
+        try:
+            self.console.print("[bold magenta]💬 系统提示：[/bold magenta]", end="")
+            self.console.print(plain_content, style="dim", markup=False)
+        except Exception:
+            print(f"💬 系统提示：{plain_content}")
 
     def print_user_input(self, content: str) -> None:
         """
@@ -271,7 +289,12 @@ class UnifiedFormatter:
         Args:
             content: 用户输入内容
         """
-        self.console.print(f"[bold blue]👤 用户输入：[/bold blue][dim]{content}[/dim]")
+        plain_content = self._to_plain_text(content)
+        try:
+            self.console.print("[bold blue]👤 用户输入：[/bold blue]", end="")
+            self.console.print(plain_content, style="dim", markup=False)
+        except Exception:
+            print(f"👤 用户输入：{plain_content}")
 
     def print_unknown(self, obj_type: type) -> None:
         """
@@ -280,13 +303,19 @@ class UnifiedFormatter:
         Args:
             obj_type: 未知对象的类型
         """
-        self.console.print(f"[dim]未知类型：[/dim][yellow]{obj_type}[/yellow]")
+        try:
+            self.console.print(f"[dim]未知类型：[/dim][yellow]{obj_type}[/yellow]")
+        except Exception:
+            print(f"未知类型：{self._to_plain_text(obj_type)}")
 
     def print_blank_line(self) -> None:
         """
         打印空行（替代 console.print()）
         """
-        self.console.print()
+        try:
+            self.console.print()
+        except Exception:
+            print()
 
     def print_rule(
         self, text: str = "[bold cyan]AI 响应[/bold cyan]", style: str = "cyan"
@@ -298,7 +327,18 @@ class UnifiedFormatter:
             text: 分隔线中央的文本，支持 rich markup
             style: 分隔线样式
         """
-        self.console.rule(text, style=style)
+        try:
+            self.console.rule(text, style=style)
+        except Exception:
+            print(f"===== {self._to_plain_text(text)} =====")
+
+    def print_status(self, content: str) -> None:
+        """打印简短状态提示。"""
+        plain_content = self._to_plain_text(content)
+        try:
+            self.console.print(f"[bold cyan]… {plain_content}[/bold cyan]")
+        except Exception:
+            print(f"... {plain_content}")
 
     def add_chunk(self, chunk: str) -> None:
         """
@@ -307,19 +347,30 @@ class UnifiedFormatter:
         Args:
             chunk: 文本块
         """
-        self.markdown_formatter.add_chunk(chunk)
+        self.markdown_formatter.add_chunk(self._to_plain_text(chunk))
 
     def render_if_needed(self) -> None:
         """流式输出过程中实时更新显示（限制更新频率）"""
-        self.markdown_formatter.render_if_needed()
+        try:
+            self.markdown_formatter.render_if_needed()
+        except Exception:
+            pass
 
     def render_final(self) -> None:
         """最终渲染所有 Markdown 内容"""
-        self.markdown_formatter.render_final()
+        try:
+            self.markdown_formatter.render_final()
+        except Exception:
+            plain_buffer = getattr(self.markdown_formatter, "buffer", "")
+            if plain_buffer:
+                print(self._to_plain_text(plain_buffer))
 
     def reset(self) -> None:
         """重置 Markdown 格式化器缓冲区"""
-        self.markdown_formatter.reset()
+        try:
+            self.markdown_formatter.reset()
+        except Exception:
+            pass
 
 
 def create_formatter(
