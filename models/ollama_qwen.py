@@ -6,8 +6,8 @@ from config import Settings
 
 def build_ollama_qwen_model(settings: Settings) -> OpenAIChatModel:
     return OpenAIChatModel(
-        settings.ollama_model_qwen,
-        provider=OllamaProvider(base_url=settings.ollama_base_url),
+        settings.models.ollama.model_qwen,
+        provider=OllamaProvider(base_url=settings.models.ollama.base_url),
     )
 
 settings = OpenAIResponsesModelSettings(

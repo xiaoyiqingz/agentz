@@ -6,15 +6,30 @@ from pathlib import Path
 
 
 @dataclass(frozen=True)
+class HostedModelSettings:
+    model_name: str
+    api_key: str | None
+    base_url: str | None = None
+
+
+@dataclass(frozen=True)
+class OllamaModelSettings:
+    base_url: str
+    model_ds: str
+    model_qwen: str
+
+
+@dataclass(frozen=True)
+class ModelSettings:
+    deepseek: HostedModelSettings
+    qwen: HostedModelSettings
+    mimo: HostedModelSettings
+    ollama: OllamaModelSettings
+
+
+@dataclass(frozen=True)
 class Settings:
-    deepseek_api_key: str | None
-    deepseek_model_name: str
-    qwen_base_url: str | None
-    qwen_api_key: str | None
-    qwen_model_name: str
-    ollama_base_url: str
-    ollama_model_ds: str
-    ollama_model_qwen: str
+    models: ModelSettings
     tavily_api_key: str | None
     mcp_config_path: Path
     skills_dir: Path
@@ -30,14 +45,32 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
     project_root = Path(__file__).resolve().parent
 
     return Settings(
-        deepseek_api_key=values.get("DEEPSEEK_API_KEY"),
-        deepseek_model_name=values.get("DEEPSEEK_MODEL_NAME", "deepseek-chat"),
-        qwen_base_url=values.get("QWEN_BASE_URL"),
-        qwen_api_key=values.get("QWEN_API_KEY"),
-        qwen_model_name=values.get("QWEN_MODEL_NAME", "qwen3-coder-plus"),
-        ollama_base_url=values.get("OLLAMA_BASE_URL", "http://localhost:11434/v1"),
-        ollama_model_ds=values.get("OLLAMA_MODEL_DS", "deepseek-r1:7b"),
-        ollama_model_qwen=values.get("OLLAMA_MODEL_QWEN", "qwen3:8b"),
+        models=ModelSettings(
+            deepseek=HostedModelSettings(
+                model_name=values.get("DEEPSEEK_MODEL_NAME", "deepseek-chat"),
+                api_key=values.get("DEEPSEEK_API_KEY"),
+            ),
+            qwen=HostedModelSettings(
+                model_name=values.get("QWEN_MODEL_NAME", "qwen3-coder-plus"),
+                api_key=values.get("QWEN_API_KEY"),
+                base_url=values.get("QWEN_BASE_URL"),
+            ),
+            mimo=HostedModelSettings(
+                model_name=values.get("MIMO_MODEL_NAME", "mimo-v2.5-pro"),
+                api_key=values.get("MIMO_API_KEY"),
+                base_url=values.get(
+                    "MIMO_BASE_URL",
+                    "https://api.xiaomimimo.com/v1",
+                ),
+            ),
+            ollama=OllamaModelSettings(
+                base_url=values.get(
+                    "OLLAMA_BASE_URL", "http://localhost:11434/v1"
+                ),
+                model_ds=values.get("OLLAMA_MODEL_DS", "deepseek-r1:7b"),
+                model_qwen=values.get("OLLAMA_MODEL_QWEN", "qwen3:8b"),
+            ),
+        ),
         tavily_api_key=values.get("TAVILY_API_KEY"),
         mcp_config_path=_resolve_path(
             values.get("MCP_CONFIG_PATH", "./mcp.json"), project_root

@@ -25,7 +25,7 @@ from context.history_processors import build_history_processors
 from context.models import SessionMeta, utc_now
 from context.session_store import SessionStore
 from context.summarizer import build_summarizer_agent, maybe_refresh_summary
-from models.deepseek import build_deepseek_model
+from models.mimo import build_mimo_model
 from prompts.prompt import get_smart_assistant_prompt
 from tools.code_patcher import apply_patch
 from tools.code_reader import read_file_lines
@@ -58,7 +58,7 @@ def create_agent(settings: Settings) -> Agent:
     toolsets_list = get_all_toolsets(settings)
 
     agent_kwargs = {
-        "model": build_deepseek_model(settings),
+        "model": build_mimo_model(settings),
         "deps_type": Deps,
         "system_prompt": get_smart_assistant_prompt(),
         "history_processors": build_history_processors(settings),

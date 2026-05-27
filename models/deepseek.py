@@ -6,6 +6,6 @@ from config import Settings
 
 def build_deepseek_model(settings: Settings) -> OpenAIChatModel:
     return OpenAIChatModel(
-        settings.deepseek_model_name,
-        provider=DeepSeekProvider(api_key=settings.deepseek_api_key),
+        settings.models.deepseek.model_name,
+        provider=DeepSeekProvider(api_key=settings.models.deepseek.api_key),
     )

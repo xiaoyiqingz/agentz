@@ -13,7 +13,7 @@ from context.history_processors import (
     split_prefix_and_turns,
 )
 from context.models import ConversationSummary, utc_now
-from models.deepseek import build_deepseek_model
+from models.mimo import build_mimo_model
 
 SUMMARY_SYSTEM_PROMPT = """
 You summarize prior turns of an AI assistant conversation.
@@ -52,7 +52,7 @@ class SummaryRunner(Protocol):
 
 def build_summarizer_agent(settings: Settings) -> Agent:
     return Agent(
-        model=build_deepseek_model(settings),
+        model=build_mimo_model(settings),
         system_prompt=SUMMARY_SYSTEM_PROMPT,
         output_type=str,
     )

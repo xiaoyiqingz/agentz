@@ -31,9 +31,9 @@ def create_agent(
     """
     if settings is not None:
         if model_name is None:
-            model_name = settings.ollama_model_ds
+            model_name = settings.models.ollama.model_ds
         if ollama_base_url is None:
-            ollama_base_url = settings.ollama_base_url
+            ollama_base_url = settings.models.ollama.base_url
 
     if model_name is None or ollama_base_url is None:
         raise ValueError("model_name 和 ollama_base_url 未提供，且未传入 settings")

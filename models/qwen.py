@@ -6,8 +6,9 @@ from config import Settings
 
 def build_qwen_model(settings: Settings) -> OpenAIChatModel:
     return OpenAIChatModel(
-        settings.qwen_model_name,
+        settings.models.qwen.model_name,
         provider=OpenAIProvider(
-            base_url=settings.qwen_base_url, api_key=settings.qwen_api_key
+            base_url=settings.models.qwen.base_url,
+            api_key=settings.models.qwen.api_key,
         ),
     )
