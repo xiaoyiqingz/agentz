@@ -13,10 +13,8 @@ from pydantic_ai.messages import (
     BuiltinToolResultEvent,
 )
 from pydantic_ai.run import AgentRunResultEvent
-import logfire
 from pathlib import Path
 from httpx import AsyncClient
-from functools import lru_cache
 from input_handler import InputHandler
 from tools.coder import generate, modify
 from config import Settings
@@ -26,6 +24,7 @@ from context.models import SessionMeta, utc_now
 from context.session_store import SessionStore
 from context.summarizer import build_summarizer_agent, maybe_refresh_summary
 from models.mimo import build_mimo_model
+from observability import configure_observability, instrument_http_client
 from prompts.prompt import get_smart_assistant_prompt
 from tools.code_patcher import apply_patch
 from tools.code_reader import read_file_lines
@@ -46,12 +45,6 @@ TOOL_STATUS_LABELS = {
     "read_skill_resource": "正在读取技能资料",
     "run_skill_script": "正在执行技能脚本",
 }
-
-@lru_cache(maxsize=1)
-def configure_logfire() -> None:
-    logfire.configure()
-    logfire.instrument_pydantic_ai()
-
 
 def create_agent(settings: Settings) -> Agent:
     tools_list = get_all_tools(settings)
@@ -96,7 +89,7 @@ def create_agent(settings: Settings) -> Agent:
 
 
 async def server_run_stream(settings: Settings, session_id: str):
-    configure_logfire()
+    configure_observability(settings)
     agent = create_agent(settings)
     summarizer = build_summarizer_agent(settings)
     # 初始化命令行输入处理器
@@ -135,7 +128,7 @@ async def server_run_stream(settings: Settings, session_id: str):
     formatter = create_formatter(use_live=False)
 
     async with AsyncClient() as client:
-        logfire.instrument_httpx(client, capture_all=True)
+        instrument_http_client(client)
         deps = Deps(
             client=client,
             session_id=session_id,
@@ -265,7 +258,7 @@ async def server_run_stream(settings: Settings, session_id: str):
 
 
 async def server_run(settings: Settings):
-    configure_logfire()
+    configure_observability(settings)
     agent = create_agent(settings)
     summarizer = build_summarizer_agent(settings)
     project_root = Path(__file__).parent
@@ -273,7 +266,7 @@ async def server_run(settings: Settings):
     conversation_id = session_id
     session_store = SessionStore(project_root, session_id=session_id)
     async with AsyncClient() as client:
-        logfire.instrument_httpx(client, capture_all=True)
+        instrument_http_client(client)
         deps = Deps(
             client=client,
             session_id=session_id,

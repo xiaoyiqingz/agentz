@@ -28,8 +28,17 @@ class ModelSettings:
 
 
 @dataclass(frozen=True)
+class ObservabilitySettings:
+    backend: str
+    langfuse_base_url: str
+    langfuse_public_key: str | None
+    langfuse_secret_key: str | None
+
+
+@dataclass(frozen=True)
 class Settings:
     models: ModelSettings
+    observability: ObservabilitySettings
     tavily_api_key: str | None
     mcp_config_path: Path
     skills_dir: Path
@@ -70,6 +79,14 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
                 model_ds=values.get("OLLAMA_MODEL_DS", "deepseek-r1:7b"),
                 model_qwen=values.get("OLLAMA_MODEL_QWEN", "qwen3:8b"),
             ),
+        ),
+        observability=ObservabilitySettings(
+            backend=values.get("OBS_BACKEND", "logfire"),
+            langfuse_base_url=values.get(
+                "LANGFUSE_BASE_URL", "https://cloud.langfuse.com"
+            ),
+            langfuse_public_key=values.get("LANGFUSE_PUBLIC_KEY"),
+            langfuse_secret_key=values.get("LANGFUSE_SECRET_KEY"),
         ),
         tavily_api_key=values.get("TAVILY_API_KEY"),
         mcp_config_path=_resolve_path(
