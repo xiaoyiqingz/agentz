@@ -124,7 +124,7 @@ async def server_run_stream(settings: Settings, session_id: str):
 
     # 创建统一的格式化器
     # 部分终端对 rich Live 的重绘兼容性较差，会把每次刷新都落成新行。
-    # 这里先关闭 Live 流式渲染，只保留最终一次性输出。
+    # 因此默认关闭 Live，改为直接流式输出原始文本，结束时不再重复整段渲染。
     formatter = create_formatter(use_live=False)
 
     async with AsyncClient() as client:

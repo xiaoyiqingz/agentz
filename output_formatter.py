@@ -76,6 +76,7 @@ class SimpleMarkdownFormatter:
         self.console = Console()
         self.buffer = ""
         self.show_stream = show_stream
+        self._streamed_output = False
 
     def add_chunk(self, chunk: str) -> None:
         """
@@ -87,6 +88,7 @@ class SimpleMarkdownFormatter:
         self.buffer += chunk
         # 如果启用流式显示，实时输出原始文本
         if self.show_stream:
+            self._streamed_output = True
             self.console.print(chunk, end="", markup=False)
 
     def render_if_needed(self) -> None:
@@ -98,11 +100,11 @@ class SimpleMarkdownFormatter:
         if not self.buffer:
             return
 
-        # 如果启用了流式显示，需要清除之前输出的原始文本
-        # 但由于流式输出已经完成，这里直接渲染格式化版本
-        if self.show_stream:
-            # 清除之前输出的原始文本（通过换行和重新渲染）
-            self.console.print()  # 换行
+        # 已经以流式原文输出过时，不再重复渲染整段 Markdown，
+        # 只补一个换行，让后续状态或下一轮输出不粘连。
+        if self.show_stream and self._streamed_output:
+            self.console.print()
+            return
 
         try:
             # 使用 rich 渲染 Markdown，支持语法高亮
@@ -115,6 +117,7 @@ class SimpleMarkdownFormatter:
     def reset(self) -> None:
         """重置缓冲区"""
         self.buffer = ""
+        self._streamed_output = False
 
 
 class LiveMarkdownFormatter:
@@ -229,8 +232,8 @@ class UnifiedFormatter:
                 LiveMarkdownFormatter, SimpleMarkdownFormatter
             ] = LiveMarkdownFormatter()
         else:
-            # 非 Live 模式下仅输出最终结果，避免流式原文和最终渲染重复打印。
-            self.markdown_formatter = SimpleMarkdownFormatter(show_stream=False)
+            # 非 Live 模式下直接流式输出原文，结束时不重复重放全文。
+            self.markdown_formatter = SimpleMarkdownFormatter(show_stream=True)
 
     @staticmethod
     def _to_plain_text(content: object) -> str:
@@ -382,7 +385,7 @@ def create_formatter(
     Args:
         use_live: 是否使用 Live 实时渲染（默认 True）
                  - True: 使用 LiveMarkdownFormatter，流式输出时实时渲染 Markdown（推荐）
-                 - False: 使用 SimpleMarkdownFormatter，流式输出时显示原始文本，结束时渲染 Markdown
+                 - False: 使用 SimpleMarkdownFormatter，流式输出原始文本，结束时仅收尾不重复整段输出
 
     Returns:
         UnifiedFormatter 实例，提供统一的输出美化接口
