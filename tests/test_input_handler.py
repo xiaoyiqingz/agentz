@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from input_handler import InputHandler
+from ui.cli.input_handler import InputHandler
 
 
 class TestInputHandler(unittest.TestCase):
@@ -14,7 +14,7 @@ class TestInputHandler(unittest.TestCase):
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
 
-    @patch("input_handler.PromptSession")
+    @patch("ui.cli.input_handler.PromptSession")
     def test_initialize_uses_agentz_session_dir(self, prompt_session_mock):
         handler = InputHandler(self.config_path, session_id="session-1")
 

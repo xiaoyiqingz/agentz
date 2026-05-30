@@ -9,7 +9,7 @@ import asyncio
 
 from dotenv import load_dotenv
 
-from config import load_settings
+from config.settings import load_settings
 from utils.session import normalize_session_id
 
 
@@ -32,7 +32,7 @@ def main():
     # 启动阶段统一加载环境变量，再初始化依赖配置的模块。
     load_dotenv()
 
-    from server import server_run_stream
+    from core.server import server_run_stream
 
     args = _parse_args()
     settings = load_settings()

@@ -4,10 +4,11 @@
 统一管理所有 Agent 工具的初始化和注册。
 """
 
-from typing import List, Any
+from typing import Any, List
 
 from pydantic_ai.tools import Tool
-from config import Settings
+
+from config.settings import Settings
 from tools.mcp_loader import get_all_mcp_toolsets
 from tools.project_review import (
     exec_review_command_tool,

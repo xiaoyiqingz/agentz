@@ -1,6 +1,6 @@
 import unittest
 
-from config import load_settings
+from config.settings import load_settings
 from models.mimo import build_mimo_model
 
 

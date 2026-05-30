@@ -13,15 +13,15 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
-from config import load_settings
-from context.deps import Deps
-from context.history_processors import (
+from config.settings import load_settings
+from core.context.deps import Deps
+from core.context.history_processors import (
     SUMMARY_METADATA_KEY,
     inject_summary_if_needed,
     keep_recent_messages,
 )
-from context.models import ConversationSummary
-from context.session_store import SessionStore
+from core.context.models import ConversationSummary
+from core.context.session_store import SessionStore
 
 
 class TestHistoryProcessors(unittest.TestCase):

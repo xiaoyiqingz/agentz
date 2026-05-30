@@ -5,15 +5,16 @@ from typing import Any, Protocol
 from pydantic_ai import Agent
 from pydantic_ai.messages import ModelMessage, ModelRequest
 
-from config import Settings
-from context.deps import Deps
-from context.history_processors import (
+from config.settings import Settings
+from models.mimo import build_mimo_model
+
+from .deps import Deps
+from .history_processors import (
     SUMMARY_METADATA_KEY,
     is_summary_request,
     split_prefix_and_turns,
 )
-from context.models import ConversationSummary, utc_now
-from models.mimo import build_mimo_model
+from .models import ConversationSummary, utc_now
 
 SUMMARY_SYSTEM_PROMPT = """
 You summarize prior turns of an AI assistant conversation.

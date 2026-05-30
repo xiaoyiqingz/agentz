@@ -1,7 +1,7 @@
 import unittest
 from pathlib import Path
 
-from config import load_settings
+from config.settings import load_settings
 
 
 class TestConfig(unittest.TestCase):

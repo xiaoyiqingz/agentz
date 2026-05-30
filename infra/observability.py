@@ -6,7 +6,7 @@ from typing import Any
 
 import logfire
 
-from config import Settings
+from config.settings import Settings
 
 
 def configure_observability(settings: Settings) -> None:

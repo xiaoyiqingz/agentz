@@ -13,7 +13,7 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.run import AgentRunResultEvent
 
-from stream_event_handler import consume_stream_events
+from core.stream_event_handler import consume_stream_events
 
 
 class TestStreamEventHandler(unittest.TestCase):

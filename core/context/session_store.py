@@ -7,7 +7,7 @@ from typing import Any
 from pydantic_ai import ModelMessagesTypeAdapter
 from pydantic_ai.messages import ModelMessage
 
-from context.models import ConversationSummary, SessionMeta
+from .models import ConversationSummary, SessionMeta
 
 
 class SessionStore:

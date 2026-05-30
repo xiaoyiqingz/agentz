@@ -5,8 +5,9 @@ from pathlib import Path
 
 from httpx import AsyncClient
 
-from config import Settings
-from context.session_store import SessionStore
+from config.settings import Settings
+
+from .session_store import SessionStore
 
 
 @dataclass

@@ -2,7 +2,7 @@ from functools import lru_cache
 
 from pydantic_ai import Agent
 
-from config import Settings
+from config.settings import Settings
 from models.qwen import build_qwen_model
 from prompts.prompt import get_coder_prompt
 

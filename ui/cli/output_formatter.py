@@ -4,11 +4,12 @@
 使用 rich 库美化输出，支持 Markdown 渲染和语法高亮。
 """
 
+import time
+from typing import Optional, Union
+
 from rich.console import Console
 from rich.live import Live
 from rich.markdown import Markdown
-from typing import Optional, Union
-import time
 
 
 class MarkdownStreamFormatter:
@@ -110,7 +111,7 @@ class SimpleMarkdownFormatter:
             # 使用 rich 渲染 Markdown，支持语法高亮
             markdown = Markdown(self.buffer, code_theme="monokai")
             self.console.print(markdown)
-        except Exception as e:
+        except Exception:
             # 如果渲染失败，直接输出原始文本
             self.console.print(self.buffer)
 
@@ -153,8 +154,8 @@ class LiveMarkdownFormatter:
             self.live = Live(
                 Markdown("", code_theme="monokai"),
                 console=self.console,
-                refresh_per_second=30,  # 提高刷新率以获得更流畅的效果
-                transient=False,  # 不自动清除，保留最终内容
+                refresh_per_second=30,
+                transient=False,
             )
             self.live.start()
 
@@ -168,9 +169,8 @@ class LiveMarkdownFormatter:
 
     def render_if_needed(self) -> None:
         """流式输出过程中实时更新显示（限制更新频率）"""
-        # 限制更新频率，避免过于频繁的渲染
         current_time = time.time()
-        if current_time - self.last_update_time > 0.1:  # 最多每 0.1 秒更新一次
+        if current_time - self.last_update_time > 0.1:
             self._update_display()
             self.last_update_time = current_time
 
@@ -186,7 +186,6 @@ class LiveMarkdownFormatter:
         if self.live is None:
             self._update_display()
         else:
-            # 直接更新，确保最终内容显示
             try:
                 markdown = Markdown(self.buffer, code_theme="monokai")
                 self.live.update(markdown)

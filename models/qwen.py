@@ -1,7 +1,7 @@
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
-from config import Settings
+from config.settings import Settings
 
 
 def build_qwen_model(settings: Settings) -> OpenAIChatModel:

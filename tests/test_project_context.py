@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from context.models import SessionMeta
+from core.context.models import SessionMeta
 from utils.project_context import resolve_session_project_path
 
 

@@ -1,7 +1,7 @@
 from pydantic_ai.models.openai import OpenAIChatModel, OpenAIResponsesModelSettings
 from pydantic_ai.providers.ollama import OllamaProvider
 
-from config import Settings
+from config.settings import Settings
 
 
 def build_ollama_qwen_model(settings: Settings) -> OpenAIChatModel:

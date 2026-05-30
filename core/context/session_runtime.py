@@ -5,9 +5,10 @@ from pathlib import Path
 
 from pydantic_ai.messages import ModelMessage
 
-from context.models import SessionMeta, utc_now
-from context.session_store import SessionStore
 from utils.project_context import resolve_session_project_path
+
+from .models import SessionMeta, utc_now
+from .session_store import SessionStore
 
 
 @dataclass(frozen=True)

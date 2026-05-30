@@ -6,10 +6,11 @@
 """
 
 from typing import Optional
-from pydantic_ai.common_tools.tavily import tavily_search_tool
-from pydantic_ai.common_tools.duckduckgo import duckduckgo_search_tool
 
-from config import Settings
+from pydantic_ai.common_tools.duckduckgo import duckduckgo_search_tool
+from pydantic_ai.common_tools.tavily import tavily_search_tool
+
+from config.settings import Settings
 
 
 def get_tavily_search_tool(settings: Settings) -> Optional[object]:

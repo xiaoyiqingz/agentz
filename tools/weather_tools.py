@@ -7,7 +7,7 @@
 from pydantic_ai import RunContext, ModelRetry
 from urllib.parse import quote
 import httpx
-from context.deps import Deps
+from core.context.deps import Deps
 
 
 async def get_weather(ctx: RunContext[Deps], city: str) -> str:

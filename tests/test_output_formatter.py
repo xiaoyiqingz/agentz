@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import Mock
 
-from output_formatter import SimpleMarkdownFormatter, create_formatter
+from ui.cli.output_formatter import SimpleMarkdownFormatter, create_formatter
 
 
 class TestOutputFormatter(unittest.TestCase):

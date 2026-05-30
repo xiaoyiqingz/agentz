@@ -1,8 +1,8 @@
 import unittest
 
 from prompts.prompt import get_smart_assistant_prompt
-from server import create_agent
-from config import load_settings
+from core.server import create_agent
+from config.settings import load_settings
 from tools.tools_registry import (
     get_all_tools,
     get_hidden_tool_result_names,

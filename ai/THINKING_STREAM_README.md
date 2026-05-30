@@ -60,10 +60,10 @@ async for event in result:
 python test_thinking_stream.py
 ```
 
-### 或者直接运行服务器
+### 或者直接运行 CLI 入口
 
 ```bash
-python server.py
+uv run python main.py
 ```
 
 ## 技术细节

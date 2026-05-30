@@ -28,6 +28,19 @@ uv run main.py --project-path /path/to/project
 uv run main.py --resume <session_id>
 ```
 
+Current runtime layout:
+
+```text
+main.py                 # CLI startup entry
+core/                   # runtime orchestration
+config/                 # settings loading
+ui/cli/                 # terminal input/output
+ui/web/                 # web UI placeholder
+interfaces/http/        # HTTP interface placeholder
+infra/                  # observability and infrastructure
+scripts/run_tests.py    # test runner helper
+```
+
 Session data is stored under:
 
 ```text

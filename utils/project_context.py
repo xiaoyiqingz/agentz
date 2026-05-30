@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from context.models import SessionMeta
+from core.context.models import SessionMeta
 
 
 def normalize_project_path(

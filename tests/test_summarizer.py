@@ -6,11 +6,11 @@ from types import SimpleNamespace
 
 from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, UserPromptPart
 
-from config import load_settings
-from context.deps import Deps
-from context.models import ConversationSummary
-from context.session_store import SessionStore
-from context.summarizer import (
+from config.settings import load_settings
+from core.context.deps import Deps
+from core.context.models import ConversationSummary
+from core.context.session_store import SessionStore
+from core.context.summarizer import (
     build_summary_prompt,
     flatten_turns,
     maybe_refresh_summary,

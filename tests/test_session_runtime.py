@@ -4,9 +4,9 @@ from pathlib import Path
 
 from pydantic_ai.messages import ModelRequest, UserPromptPart
 
-from context.models import SessionMeta
-from context.session_runtime import initialize_session_runtime
-from context.session_store import SessionStore
+from core.context.models import SessionMeta
+from core.context.session_runtime import initialize_session_runtime
+from core.context.session_store import SessionStore
 
 
 class TestSessionRuntime(unittest.TestCase):

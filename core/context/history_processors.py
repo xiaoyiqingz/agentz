@@ -5,8 +5,9 @@ from collections.abc import Sequence
 from pydantic_ai import RunContext
 from pydantic_ai.messages import ModelMessage, ModelRequest, SystemPromptPart, UserPromptPart
 
-from config import Settings
-from context.deps import Deps
+from config.settings import Settings
+
+from .deps import Deps
 
 SUMMARY_METADATA_KEY = "agentz_summary"
 SUMMARY_LABEL = "HISTORICAL SUMMARY"
@@ -104,17 +105,17 @@ async def inject_summary_if_needed(
         conversation_id=ctx.deps.conversation_id,
     )
 
-    retained_messages = [
-        msg
-        for msg in messages
-        if not is_summary_request(msg)
-    ]
+    retained_messages = [msg for msg in messages if not is_summary_request(msg)]
 
     insert_at = 0
     if retained_messages and isinstance(retained_messages[0], ModelRequest):
         insert_at = 1
 
-    return retained_messages[:insert_at] + [summary_request] + retained_messages[insert_at:]
+    return (
+        retained_messages[:insert_at]
+        + [summary_request]
+        + retained_messages[insert_at:]
+    )
 
 
 def build_history_processors(settings: Settings) -> Sequence:

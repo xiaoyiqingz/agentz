@@ -1,9 +1,10 @@
-from typing import Optional, Any, Type
+from typing import Any, Optional, Type
+
 from pydantic_ai import Agent, toolsets
 from pydantic_ai.models.openai import OpenAIModel
 from pydantic_ai.providers.ollama import OllamaProvider
 
-from config import Settings
+from config.settings import Settings
 
 
 def create_agent(

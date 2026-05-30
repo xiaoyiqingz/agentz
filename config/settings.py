@@ -52,7 +52,7 @@ class Settings:
 def load_settings(env: dict[str, str] | None = None) -> Settings:
     """Build project settings from process environment."""
     values = env or os.environ
-    base_path = Path(__file__).resolve().parent
+    base_path = Path(__file__).resolve().parent.parent
 
     return Settings(
         models=ModelSettings(

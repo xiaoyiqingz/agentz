@@ -4,7 +4,7 @@ from pathlib import Path
 
 from pydantic_ai_skills import SkillsToolset
 
-from config import load_settings
+from config.settings import load_settings
 from tools.skills_toolset import get_skills_dir
 
 

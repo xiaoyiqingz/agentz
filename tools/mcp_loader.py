@@ -10,7 +10,8 @@ from pathlib import Path
 from typing import Any
 
 from pydantic_ai.mcp import load_mcp_servers
-from config import Settings
+
+from config.settings import Settings
 
 
 def get_mcp_config_path(settings: Settings) -> Path:

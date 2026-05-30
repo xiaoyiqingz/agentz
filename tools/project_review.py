@@ -6,7 +6,7 @@ from pathlib import Path
 
 from pydantic_ai import RunContext
 
-from context.deps import Deps
+from core.context.deps import Deps
 from tools.file_reader import read_file_lines
 
 MAX_OUTPUT_CHARS = 12000

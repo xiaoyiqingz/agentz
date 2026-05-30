@@ -2,8 +2,8 @@ import os
 import unittest
 from unittest.mock import patch
 
-from config import load_settings
-from observability import (
+from config.settings import load_settings
+from infra.observability import (
     _build_langfuse_auth_header,
     _build_langfuse_otlp_endpoint,
     configure_observability,
@@ -23,8 +23,8 @@ class TestObservability(unittest.TestCase):
             "cGstbGYtdGVzdDpzay1sZi10ZXN0",
         )
 
-    @patch("observability.logfire.instrument_pydantic_ai")
-    @patch("observability.logfire.configure")
+    @patch("infra.observability.logfire.instrument_pydantic_ai")
+    @patch("infra.observability.logfire.configure")
     def test_configure_observability_uses_logfire_backend(
         self,
         configure_mock,
@@ -43,8 +43,8 @@ class TestObservability(unittest.TestCase):
         configure_mock.assert_called_once_with()
         instrument_mock.assert_called_once_with()
 
-    @patch("observability.logfire.instrument_pydantic_ai")
-    @patch("observability.logfire.configure")
+    @patch("infra.observability.logfire.instrument_pydantic_ai")
+    @patch("infra.observability.logfire.configure")
     def test_configure_observability_uses_langfuse_backend(
         self,
         configure_mock,

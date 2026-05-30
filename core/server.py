@@ -1,24 +1,28 @@
+from pathlib import Path
+
+from httpx import AsyncClient
 from pydantic_ai import Agent
 from pydantic_ai.messages import ModelMessage
-from pathlib import Path
-from httpx import AsyncClient
-from input_handler import InputHandler
-from config import Settings
-from context.deps import Deps
-from context.history_processors import build_history_processors
-from context.session_runtime import initialize_session_runtime
-from context.summarizer import build_summarizer_agent, maybe_refresh_summary
+
+from commands.builtin_commands import CommandType, process_builtin_command
+from config.settings import Settings
+from infra.observability import configure_observability, instrument_http_client
 from models.mimo import build_mimo_model
-from observability import configure_observability, instrument_http_client
 from prompts.prompt import get_smart_assistant_prompt
 from tools.tools_registry import (
     get_all_tools,
     get_all_toolsets,
     get_tool_status_labels,
 )
-from output_formatter import create_formatter
-from commands.builtin_commands import process_builtin_command, CommandType
-from stream_event_handler import consume_stream_events
+from ui.cli.input_handler import InputHandler
+from ui.cli.output_formatter import create_formatter
+
+from .context.deps import Deps
+from .context.history_processors import build_history_processors
+from .context.session_runtime import initialize_session_runtime
+from .context.summarizer import build_summarizer_agent, maybe_refresh_summary
+from .stream_event_handler import consume_stream_events
+
 
 def create_agent(settings: Settings) -> Agent:
     tools_list = get_all_tools(settings)
@@ -108,7 +112,6 @@ async def server_run_stream(
                             # 转换型命令：将转换后的内容作为用户输入传给 agent
                             user_input = result
 
-                    # 在用户输入后加上"！"并返回
                     formatter.print_user_input(user_input)
                     formatter.print_blank_line()
                     formatter.print_rule()
@@ -133,7 +136,6 @@ async def server_run_stream(
                     formatter.render_final()
                     formatter.reset()
 
-                    final_response_text = stream_result.final_response_text
                     run_result = stream_result.run_result
                     if run_result is None:
                         raise RuntimeError("Agent 流式运行未返回最终结果")

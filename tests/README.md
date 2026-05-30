@@ -18,7 +18,7 @@ tests/
 **最简单的运行方式**（推荐）:
 ```bash
 # 在项目根目录运行所有测试
-uv run python run_tests.py
+uv run python scripts/run_tests.py
 ```
 
 ### 为什么使用 uv？
@@ -32,10 +32,10 @@ uv run python run_tests.py
 ### 使用 uv 运行测试（推荐）
 ```bash
 # 运行所有测试
-uv run python run_tests.py
+uv run python scripts/run_tests.py
 
 # 运行特定测试文件
-uv run python run_tests.py code_reader
+uv run python scripts/run_tests.py code_reader
 
 # 直接使用unittest运行所有测试
 uv run python -m unittest discover tests/
@@ -50,7 +50,7 @@ uv run python -m unittest tests.test_code_reader.TestCodeReader.test_read_single
 ### 使用标准Python运行测试
 ```bash
 # 使用测试运行脚本
-python3 run_tests.py
+python3 scripts/run_tests.py
 
 # 或者直接使用unittest
 python3 -m unittest discover tests/
@@ -59,7 +59,7 @@ python3 -m unittest discover tests/
 ### 运行特定测试
 ```bash
 # 运行特定测试文件
-python3 run_tests.py code_reader
+python3 scripts/run_tests.py code_reader
 
 # 或者直接运行特定测试文件
 python3 -m unittest tests.test_code_reader
@@ -129,21 +129,21 @@ uv add requests  # 添加其他依赖
 
 ### 运行测试的完整命令
 
-**强烈推荐**: 使用 `run_tests.py` 脚本（最简单可靠）
+**强烈推荐**: 使用 `scripts/run_tests.py` 脚本（最简单可靠）
 
 ```bash
 # 1. 运行所有测试
-uv run python run_tests.py
+uv run python scripts/run_tests.py
 
 # 2. 运行特定测试文件
-uv run python run_tests.py code_reader
+uv run python scripts/run_tests.py code_reader
 ```
 
 **注意**: 如果遇到路径问题，可以使用绝对路径：
 ```bash
 # 使用绝对路径运行测试
-uv run python /path/to/your/project/run_tests.py
-uv run python /path/to/your/project/run_tests.py code_reader
+uv run python /path/to/your/project/scripts/run_tests.py
+uv run python /path/to/your/project/scripts/run_tests.py code_reader
 ```
 
 **其他方式**: 直接运行测试文件
@@ -166,7 +166,7 @@ uv run coverage html  # 生成HTML报告
 ### 如果不在项目根目录运行
 ```bash
 # 使用绝对路径运行测试
-uv run python /path/to/your/project/run_tests.py
+uv run python /path/to/your/project/scripts/run_tests.py
 
 # 使用绝对路径运行特定测试文件
 uv run python /path/to/your/project/tests/test_code_reader.py
@@ -196,5 +196,5 @@ uv pip list
 - name: Run tests with uv
   run: |
     curl -LsSf https://astral.sh/uv/install.sh | sh
-    uv run python run_tests.py
+    uv run python scripts/run_tests.py
 ```
