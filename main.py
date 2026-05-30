@@ -38,7 +38,8 @@ def main():
     settings = load_settings()
     session_id, resumed = normalize_session_id(args.resume)
 
-    print("欢迎使用交互式客户端！  请输入内容（按 Ctrl-C 退出）：")
+    print("欢迎使用交互式客户端！")
+    print("请输入内容（按 Ctrl-C 退出）：")
     print(f"当前 session: {session_id}")
     if resumed:
         print("已根据 --resume 加载该 session 的历史。")

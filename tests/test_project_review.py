@@ -39,6 +39,11 @@ class TestProjectReview(unittest.TestCase):
 
         self.assertEqual(content, "line1\nline2\n")
 
+    def test_read_project_file_clamps_end_line_to_file_end(self):
+        content = read_project_file(self.project_path, "src/demo.py", 1, 20)
+
+        self.assertEqual(content, "line1\nline2\nline3\n")
+
     @patch("tools.project_review.subprocess.run")
     def test_exec_review_command_allows_git_diff(self, run_mock):
         run_mock.return_value = subprocess.CompletedProcess(
@@ -54,6 +59,40 @@ class TestProjectReview(unittest.TestCase):
         run_mock.assert_called_once()
         self.assertEqual(run_mock.call_args.kwargs["cwd"], self.project_path)
         self.assertFalse(run_mock.call_args.kwargs["shell"])
+
+    @patch("tools.project_review.subprocess.run")
+    def test_exec_review_command_preserves_rg_context_flag_values(self, run_mock):
+        run_mock.return_value = subprocess.CompletedProcess(
+            args=["rg", "-C", "2", "line", "src/demo.py"],
+            returncode=0,
+            stdout="1-line1",
+            stderr="",
+        )
+
+        result = exec_review_command(
+            self.project_path,
+            "rg -C 2 line src/demo.py",
+        )
+
+        self.assertIn("1-line1", result)
+        run_mock.assert_called_once()
+        self.assertEqual(
+            run_mock.call_args.args[0],
+            ["rg", "-C", "2", "line", "src/demo.py"],
+        )
+
+    @patch("tools.project_review.subprocess.run")
+    def test_exec_review_command_reports_rg_no_matches_cleanly(self, run_mock):
+        run_mock.return_value = subprocess.CompletedProcess(
+            args=["rg", "missing", "."],
+            returncode=1,
+            stdout="",
+            stderr="",
+        )
+
+        result = exec_review_command(self.project_path, "rg missing .")
+
+        self.assertEqual(result, "[无匹配结果]")
 
     def test_exec_review_command_rejects_shell_operators(self):
         with self.assertRaises(CommandRejectedError):

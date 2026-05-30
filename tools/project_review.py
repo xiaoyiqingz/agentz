@@ -51,7 +51,11 @@ def read_project_file(
     end_line: int,
 ) -> str:
     resolved = resolve_repo_path(project_path, file_path)
-    return read_file_lines(str(resolved), start_line, end_line)
+    total_lines = _count_file_lines(resolved)
+    effective_end_line = end_line
+    if total_lines > 0 and start_line <= total_lines:
+        effective_end_line = min(end_line, total_lines)
+    return read_file_lines(str(resolved), start_line, effective_end_line)
 
 
 def git_status_summary(project_path: Path) -> str:
@@ -142,6 +146,11 @@ async def search_repo_tool(
 
 async def exec_review_command_tool(ctx: RunContext[Deps], command: str) -> str:
     return exec_review_command(ctx.deps.project_path, command)
+
+
+def _count_file_lines(file_path: Path) -> int:
+    with file_path.open("r", encoding="utf-8") as file:
+        return sum(1 for _ in file)
 
 
 def _parse_review_command(project_path: Path, command: str) -> list[str]:
@@ -248,6 +257,8 @@ def _run_review_subprocess(
             f"{output[:max_output_chars]}\n\n"
             f"[输出已截断，总长度超过 {max_output_chars} 字符]"
         )
+    if argv and argv[0] == "rg" and completed.returncode == 1:
+        return "[无匹配结果]"
     if completed.returncode != 0:
         return f"[exit_code={completed.returncode}]\n{output}"
     return output
