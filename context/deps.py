@@ -15,5 +15,6 @@ class Deps:
     session_id: str
     conversation_id: str
     config_path: Path
+    project_path: Path
     settings: Settings
     session_store: SessionStore

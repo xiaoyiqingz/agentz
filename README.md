@@ -22,6 +22,10 @@ Start the CLI app with:
 
 ```bash
 uv run main.py
+# or bind a specific project directory to this session
+uv run main.py --project-path /path/to/project
+# or resume an existing session and restore its bound project directory
+uv run main.py --resume <session_id>
 ```
 
 Session data is stored under:
@@ -35,6 +39,8 @@ By default `CONFIG_PATH` resolves to the current user's home directory. You can 
 ```bash
 CONFIG_PATH=~
 ```
+
+The bound project directory is stored in the current session metadata. If `--project-path` is omitted, the CLI defaults to the current working directory. When resuming with `--resume`, the stored project directory is restored and takes precedence over any new `--project-path` value.
 
 ## MCP config
 

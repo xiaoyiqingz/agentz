@@ -13,14 +13,18 @@ from config import load_settings
 from utils.session import normalize_session_id
 
 
-def _parse_args() -> argparse.Namespace:
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="启动交互式 agent 客户端")
     parser.add_argument(
         "--resume",
         metavar="SESSION_ID",
         help="恢复指定 session id 的输入历史和消息历史",
     )
-    return parser.parse_args()
+    parser.add_argument(
+        "--project-path",
+        help="当前 session 绑定的项目目录；不传时默认使用当前工作目录",
+    )
+    return parser.parse_args(argv)
 
 
 def main():
@@ -34,14 +38,19 @@ def main():
     settings = load_settings()
     session_id, resumed = normalize_session_id(args.resume)
 
-    print("欢迎使用交互式客户端！")
+    print("欢迎使用交互式客户端！  请输入内容（按 Ctrl-C 退出）：")
     print(f"当前 session: {session_id}")
     if resumed:
         print("已根据 --resume 加载该 session 的历史。")
-    print("请输入内容（按 Ctrl-C 退出）：")
 
     try:
-        asyncio.run(server_run_stream(settings=settings, session_id=session_id))
+        asyncio.run(
+            server_run_stream(
+                settings=settings,
+                session_id=session_id,
+                requested_project_path=args.project_path,
+            )
+        )
         # asyncio.run(server_run())
 
     except KeyboardInterrupt:

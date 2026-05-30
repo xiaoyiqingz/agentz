@@ -12,6 +12,7 @@ def utc_now() -> datetime:
 class SessionMeta(BaseModel):
     session_id: str
     conversation_id: str
+    project_path: str | None = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
     resumed: bool = False

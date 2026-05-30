@@ -32,7 +32,11 @@ class TestSessionStore(unittest.TestCase):
         self.assertEqual(loaded[0].parts[0].content, "hello")
 
     def test_round_trip_meta(self):
-        meta = SessionMeta(session_id="session-1", conversation_id="conversation-1")
+        meta = SessionMeta(
+            session_id="session-1",
+            conversation_id="conversation-1",
+            project_path="/tmp/demo-project",
+        )
 
         self.store.save_meta(meta)
         loaded = self.store.load_meta()
@@ -41,6 +45,7 @@ class TestSessionStore(unittest.TestCase):
         assert loaded is not None
         self.assertEqual(loaded.session_id, "session-1")
         self.assertEqual(loaded.conversation_id, "conversation-1")
+        self.assertEqual(loaded.project_path, "/tmp/demo-project")
 
     def test_round_trip_summary(self):
         summary = ConversationSummary(

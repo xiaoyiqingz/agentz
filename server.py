@@ -1,49 +1,24 @@
-from pydantic_ai import Agent, RunContext
-from pydantic_ai.messages import (
-    ModelMessage,
-    ThinkingPart,
-    TextPart,
-    TextPartDelta,
-    PartStartEvent,
-    PartDeltaEvent,
-    ThinkingPartDelta,
-    FunctionToolCallEvent,
-    FunctionToolResultEvent,
-    BuiltinToolCallEvent,
-    BuiltinToolResultEvent,
-)
-from pydantic_ai.run import AgentRunResultEvent
+from pydantic_ai import Agent
+from pydantic_ai.messages import ModelMessage
+from pathlib import Path
 from httpx import AsyncClient
 from input_handler import InputHandler
-from tools.coder import generate, modify
 from config import Settings
 from context.deps import Deps
 from context.history_processors import build_history_processors
-from context.models import SessionMeta, utc_now
-from context.session_store import SessionStore
+from context.session_runtime import initialize_session_runtime
 from context.summarizer import build_summarizer_agent, maybe_refresh_summary
 from models.mimo import build_mimo_model
 from observability import configure_observability, instrument_http_client
 from prompts.prompt import get_smart_assistant_prompt
-from tools.code_patcher import apply_patch
-from tools.code_reader import read_file_lines
-from tools.tools_registry import get_all_tools, get_all_toolsets
+from tools.tools_registry import (
+    get_all_tools,
+    get_all_toolsets,
+    get_tool_status_labels,
+)
 from output_formatter import create_formatter
 from commands.builtin_commands import process_builtin_command, CommandType
-
-HIDDEN_TOOL_RESULT_NAMES = {
-    "list_skills",
-    "load_skill",
-    "read_skill_resource",
-    "run_skill_script",
-}
-
-TOOL_STATUS_LABELS = {
-    "list_skills": "正在检查可用技能",
-    "load_skill": "正在加载技能",
-    "read_skill_resource": "正在读取技能资料",
-    "run_skill_script": "正在执行技能脚本",
-}
+from stream_event_handler import consume_stream_events
 
 def create_agent(settings: Settings) -> Agent:
     tools_list = get_all_tools(settings)
@@ -60,34 +35,15 @@ def create_agent(settings: Settings) -> Agent:
     if toolsets_list:
         agent_kwargs["toolsets"] = toolsets_list
 
-    agent = Agent(**agent_kwargs)
-
-    @agent.tool
-    async def read_code_file(
-        ctx: RunContext[Deps], file_path: str, start_line: int, end_line: int
-    ) -> str:
-        return read_file_lines(file_path, start_line, end_line)
-
-    @agent.tool
-    async def apply_code_patch(
-        ctx: RunContext[Deps], file_path: str, patch_string: str
-    ) -> str:
-        return apply_patch(patch_string, file_path)
-
-    @agent.tool
-    async def check_and_modify_code(
-        ctx: RunContext[Deps], code_string: str, file_path: str, begin_line: int = 1
-    ) -> str:
-        return await modify(settings, code_string, file_path, begin_line)
-
-    @agent.tool
-    async def generate_code(ctx: RunContext[Deps], text: str) -> str:
-        return await generate(settings, text)
-
-    return agent
+    return Agent(**agent_kwargs)
 
 
-async def server_run_stream(settings: Settings, session_id: str):
+async def server_run_stream(
+    settings: Settings,
+    session_id: str,
+    requested_project_path: str | None = None,
+):
+    tool_status_labels = get_tool_status_labels()
     configure_observability(settings)
     agent = create_agent(settings)
     summarizer = build_summarizer_agent(settings)
@@ -95,31 +51,18 @@ async def server_run_stream(settings: Settings, session_id: str):
     config_path = settings.config_path
     input_handler = InputHandler(config_path, session_id=session_id)
     input_handler.initialize()
-    session_store = SessionStore(config_path, session_id=session_id)
-    all_messages: list[ModelMessage] = session_store.load_message_history()
-    conversation_id = session_id
-    session_meta = session_store.load_meta()
-    now = utc_now()
-    if session_meta is None:
-        session_store.save_meta(
-            SessionMeta(
-                session_id=session_id,
-                conversation_id=conversation_id,
-                created_at=now,
-                updated_at=now,
-                resumed=bool(all_messages),
-            )
-        )
-    else:
-        session_store.save_meta(
-            session_meta.model_copy(
-                update={
-                    "conversation_id": conversation_id,
-                    "updated_at": now,
-                    "resumed": session_meta.resumed or bool(all_messages),
-                }
-            )
-        )
+    session_runtime = initialize_session_runtime(
+        config_path=config_path,
+        session_id=session_id,
+        requested_project_path=requested_project_path,
+    )
+    session_store = session_runtime.session_store
+    all_messages: list[ModelMessage] = session_runtime.all_messages
+    conversation_id = session_runtime.conversation_id
+    project_path = session_runtime.project_path
+    print(f"当前项目目录: {project_path}")
+    if session_runtime.ignored_cli_project_path:
+        print("已恢复该 session 绑定的项目目录，忽略本次传入的 --project-path。")
 
     # 创建统一的格式化器
     # 部分终端对 rich Live 的重绘兼容性较差，会把每次刷新都落成新行。
@@ -133,6 +76,7 @@ async def server_run_stream(settings: Settings, session_id: str):
             session_id=session_id,
             conversation_id=conversation_id,
             config_path=config_path,
+            project_path=project_path,
             settings=settings,
             session_store=session_store,
         )
@@ -165,9 +109,6 @@ async def server_run_stream(settings: Settings, session_id: str):
                             user_input = result
 
                     # 在用户输入后加上"！"并返回
-                    final_response_text = ""
-                    run_result = None
-
                     formatter.print_user_input(user_input)
                     formatter.print_blank_line()
                     formatter.print_rule()
@@ -178,55 +119,22 @@ async def server_run_stream(settings: Settings, session_id: str):
                         deps=deps,
                         message_history=all_messages,
                         conversation_id=conversation_id,
-                        metadata={"session_id": session_id},
+                        metadata={
+                            "session_id": session_id,
+                            "project_path": str(project_path),
+                        },
                     ) as stream:
-                        async for event in stream:
-                            if isinstance(event, PartStartEvent):
-                                if isinstance(event.part, ThinkingPart):
-                                    # 并非所有模型都会暴露 ThinkingPart，这里不再依赖它驱动状态提示。
-                                    pass
-                                elif isinstance(event.part, TextPart):
-                                    if event.part.content:
-                                        final_response_text += event.part.content
-                                        formatter.add_chunk(event.part.content)
-                                        formatter.render_if_needed()
-                            elif isinstance(event, PartDeltaEvent):
-                                if isinstance(event.delta, ThinkingPartDelta):
-                                    # 推理仍然进行，但不向用户暴露具体 thinking 文本。
-                                    pass
-                                elif isinstance(event.delta, TextPartDelta):
-                                    if event.delta.content_delta:
-                                        final_response_text += (
-                                            event.delta.content_delta
-                                        )
-                                        formatter.add_chunk(
-                                            event.delta.content_delta
-                                        )
-                                        formatter.render_if_needed()
-                            elif isinstance(event, FunctionToolCallEvent):
-                                tool_name = event.part.tool_name
-                                status_text = TOOL_STATUS_LABELS.get(
-                                    tool_name, f"正在调用工具：{tool_name}"
-                                )
-                                formatter.print_status(status_text)
-                            elif isinstance(event, FunctionToolResultEvent):
-                                # 如需排查工具返回内容，可临时恢复这段输出。
-                                # if event.result.tool_name not in HIDDEN_TOOL_RESULT_NAMES:
-                                #     formatter.print_tool_result(event.result.content)
-                                pass
-                            elif isinstance(event, BuiltinToolCallEvent):
-                                formatter.print_status(
-                                    f"正在调用内置工具：{event.part.tool_name}"
-                                )
-                            elif isinstance(event, BuiltinToolResultEvent):
-                                # print(f"📤 内置tool返回：{event.result.content}")
-                                pass
-                            elif isinstance(event, AgentRunResultEvent):
-                                run_result = event.result
+                        stream_result = await consume_stream_events(
+                            stream=stream,
+                            formatter=formatter,
+                            tool_status_labels=tool_status_labels,
+                        )
 
                     formatter.render_final()
                     formatter.reset()
 
+                    final_response_text = stream_result.final_response_text
+                    run_result = stream_result.run_result
                     if run_result is None:
                         raise RuntimeError("Agent 流式运行未返回最终结果")
 
@@ -262,8 +170,14 @@ async def server_run(settings: Settings):
     summarizer = build_summarizer_agent(settings)
     config_path = settings.config_path
     session_id = "sync-session"
-    conversation_id = session_id
-    session_store = SessionStore(config_path, session_id=session_id)
+    session_runtime = initialize_session_runtime(
+        config_path=config_path,
+        session_id=session_id,
+        cwd=Path.cwd().resolve(),
+    )
+    session_store = session_runtime.session_store
+    conversation_id = session_runtime.conversation_id
+    project_path = session_runtime.project_path
     async with AsyncClient() as client:
         instrument_http_client(client)
         deps = Deps(
@@ -271,6 +185,7 @@ async def server_run(settings: Settings):
             session_id=session_id,
             conversation_id=conversation_id,
             config_path=config_path,
+            project_path=project_path,
             settings=settings,
             session_store=session_store,
         )
@@ -282,7 +197,10 @@ async def server_run(settings: Settings):
                 user_input,
                 deps=deps,
                 conversation_id=conversation_id,
-                metadata={"session_id": session_id},
+                metadata={
+                    "session_id": session_id,
+                    "project_path": str(project_path),
+                },
             )
             session_store.save_message_history(result.all_messages())
             try:

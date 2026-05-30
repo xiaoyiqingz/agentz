@@ -11,7 +11,7 @@ import unittest
 # 添加项目根目录到Python路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from commands.code_reader import read_file_lines, read_file_line
+from tools.deprecated.code_reader import read_file_lines, read_file_line
 
 
 class TestCodeReader(unittest.TestCase):

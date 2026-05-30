@@ -33,13 +33,13 @@ def read_file_lines(file_path: str, start_line: int, end_line: int = None) -> st
         with open(file_path, "r", encoding="utf-8") as file:
             lines = file.readlines()
 
-        # 验证行号是否超出文件范围
         total_lines = len(lines)
+        if total_lines == 0:
+            raise ValueError("文件为空，无法读取指定行")
         if start_line > total_lines:
-            start_line = total_lines - 1
-
+            raise ValueError("起始行号超出文件范围")
         if end_line is not None and end_line > total_lines:
-            end_line = total_lines
+            raise ValueError("结束行号超出文件范围")
 
         # 提取指定行数（转换为0基索引）
         start_idx = start_line - 1

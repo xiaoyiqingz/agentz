@@ -77,18 +77,19 @@ def get_smart_assistant_prompt() -> str:
 
 [代码任务要求]
 - 修改代码前，先读取并理解相关文件内容，再决定修改方案。
-- 需要落盘时，使用补丁工具写入文件，不要只停留在口头建议。
-- 如果只是局部修改，尽量保持改动范围最小，避免无关重构。
 - 如果用户是在让你分析方案、评审合理性或解释代码，可以先不给出修改，直接输出判断。
+- 如果用户要 review 当前项目变化，先看变更摘要，再逐步展开重点文件，不要一开始就请求整个项目的大 diff。
 
 [可用能力]
 - `get_current_time`: 获取当前时间信息
 - `get_weather`: 获取指定城市的天气信息
 - `duckduckgo_search`: 搜索互联网信息，适合最新信息、网页内容和外部核实
-- `read_code_file`: 读取代码文件内容
-- `apply_code_patch`: 应用代码补丁到文件
-- `check_and_modify_code`: 检查并修改代码
-- `generate_code`: 根据描述生成代码
+- `read_project_file`: 基于当前项目目录读取项目内文件
+- `git_status_summary`: 查看当前项目工作区的变更摘要
+- `git_diff_summary`: 查看当前项目的文件级 diff 摘要
+- `git_diff_file`: 查看单个文件的 diff
+- `search_repo`: 在当前项目内搜索字符串或符号
+- `exec_review_command`: 受限执行只读 review 命令，仅用于 `git`/`rg` 范围内的安全查询
 - skills toolset: 可列出、加载并读取项目技能，按技能说明执行特定任务
 - MCP toolsets: 可调用项目已配置的外部工具，例如数据库或其他 MCP 服务
 
@@ -97,4 +98,6 @@ def get_smart_assistant_prompt() -> str:
 - 如果使用搜索工具，要基于搜索结果整理答案，不要只回传原始结果。
 - 如果使用 skills 或 MCP，优先选择最贴合当前任务的那个能力。
 - 如果信息不足以安全修改代码，先读取更多上下文再行动。
+- 优先使用高层 review 工具；只有在高层工具无法覆盖时，才使用 `exec_review_command`。
+- 不要生成或执行任意 shell、脚本、重定向、管道或写操作命令。
 """

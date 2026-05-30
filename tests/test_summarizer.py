@@ -49,6 +49,7 @@ class TestSummarizer(unittest.TestCase):
             session_id="session-1",
             conversation_id="conversation-1",
             config_path=self.config_path,
+            project_path=self.config_path,
             settings=self.settings,
             session_store=self.session_store,
         )
