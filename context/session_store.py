@@ -16,7 +16,7 @@ class SessionStore:
     def __init__(self, project_root: Path, session_id: str):
         self.project_root = project_root
         self.session_id = session_id
-        self._session_dir = self.project_root / "data" / "sessions" / session_id
+        self._session_dir = self.project_root / ".agentz" / "sessions" / session_id
         self.message_history_path = self._session_dir / "agentz_message_history.json"
         self.meta_path = self._session_dir / "session_meta.json"
         self.summary_path = self._session_dir / "conversation_summary.json"

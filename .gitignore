@@ -56,4 +56,4 @@ agentz_message_history.json
 # Project-local Codex skills
 .agents/
 skills/
-data/
+.agentz/

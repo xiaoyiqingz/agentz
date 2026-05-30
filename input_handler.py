@@ -80,7 +80,7 @@ class InputHandler:
         - 在必要时回退到 readline
         """
         # 为每个 session 使用独立目录，方便恢复与区分。
-        data_dir = self.project_root / "data" / "sessions"
+        data_dir = self.project_root / ".agentz" / "sessions"
         self.session_dir = data_dir / self.session_id
         # 确保目录存在
         self.session_dir.mkdir(parents=True, exist_ok=True)

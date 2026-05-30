@@ -17,6 +17,11 @@ class TestSessionStore(unittest.TestCase):
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
 
+    def test_session_dir_uses_agentz_root(self):
+        expected = self.project_root / ".agentz" / "sessions" / "session-1"
+
+        self.assertEqual(self.store.session_dir, expected)
+
     def test_round_trip_message_history(self):
         messages = [ModelRequest(parts=[UserPromptPart(content="hello")])]
 
