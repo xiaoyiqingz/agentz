@@ -45,15 +45,15 @@ def _import_readline() -> Optional[object]:
 class InputHandler:
     """命令行输入处理器，封装 prompt_toolkit 与历史记录管理"""
 
-    def __init__(self, project_root: Path, session_id: str):
+    def __init__(self, config_path: Path, session_id: str):
         """
         初始化输入处理器
 
         Args:
-            project_root: 项目根目录路径，用于确定历史记录文件位置
+            config_path: 配置根目录路径，用于确定 session 历史记录文件位置
             session_id: 当前会话 ID，用于隔离不同 session 的历史文件
         """
-        self.project_root = project_root
+        self.config_path = config_path
         self.session_id = session_id
         self.readline_module = _import_readline()
         self.session_dir: Optional[Path] = None
@@ -80,7 +80,7 @@ class InputHandler:
         - 在必要时回退到 readline
         """
         # 为每个 session 使用独立目录，方便恢复与区分。
-        data_dir = self.project_root / ".agentz" / "sessions"
+        data_dir = self.config_path / ".agentz" / "sessions"
         self.session_dir = data_dir / self.session_id
         # 确保目录存在
         self.session_dir.mkdir(parents=True, exist_ok=True)

@@ -11,14 +11,14 @@ from context.session_store import SessionStore
 class TestSessionStore(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.project_root = Path(self.temp_dir.name)
-        self.store = SessionStore(self.project_root, session_id="session-1")
+        self.config_path = Path(self.temp_dir.name)
+        self.store = SessionStore(self.config_path, session_id="session-1")
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
 
     def test_session_dir_uses_agentz_root(self):
-        expected = self.project_root / ".agentz" / "sessions" / "session-1"
+        expected = self.config_path / ".agentz" / "sessions" / "session-1"
 
         self.assertEqual(self.store.session_dir, expected)
 

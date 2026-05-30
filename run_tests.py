@@ -9,14 +9,14 @@ import unittest
 from pathlib import Path
 
 # 添加项目根目录到Python路径
-project_root = Path(__file__).parent
-sys.path.insert(0, str(project_root))
+repo_root = Path(__file__).parent
+sys.path.insert(0, str(repo_root))
 
 
 def discover_and_run_tests():
     """发现并运行所有测试"""
     # 设置测试发现目录
-    test_dir = project_root / "tests"
+    test_dir = repo_root / "tests"
 
     # 确保测试目录存在
     if not test_dir.exists():
@@ -37,7 +37,7 @@ def discover_and_run_tests():
 
 def run_specific_test(test_name):
     """运行特定的测试文件"""
-    test_file = project_root / "tests" / f"test_{test_name}.py"
+    test_file = repo_root / "tests" / f"test_{test_name}.py"
 
     if not test_file.exists():
         print(f"❌ 测试文件不存在: {test_file}")

@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 from config import load_settings
 
@@ -19,6 +20,7 @@ class TestConfig(unittest.TestCase):
         )
         self.assertIsNone(settings.observability.langfuse_public_key)
         self.assertIsNone(settings.observability.langfuse_secret_key)
+        self.assertEqual(settings.config_path, Path.home())
 
     def test_load_settings_includes_mimo_defaults(self):
         settings = load_settings(
@@ -69,3 +71,14 @@ class TestConfig(unittest.TestCase):
         )
         self.assertEqual(settings.observability.langfuse_public_key, "pk-lf-test")
         self.assertEqual(settings.observability.langfuse_secret_key, "sk-lf-test")
+
+    def test_load_settings_accepts_config_path_override(self):
+        settings = load_settings(
+            {
+                "CONFIG_PATH": "/tmp/agentz-config",
+                "SKILLS_DIR": "./.agents/skills",
+                "MCP_CONFIG_PATH": "./mcp.json",
+            }
+        )
+
+        self.assertEqual(settings.config_path, Path("/tmp/agentz-config"))

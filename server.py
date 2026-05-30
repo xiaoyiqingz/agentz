@@ -13,7 +13,6 @@ from pydantic_ai.messages import (
     BuiltinToolResultEvent,
 )
 from pydantic_ai.run import AgentRunResultEvent
-from pathlib import Path
 from httpx import AsyncClient
 from input_handler import InputHandler
 from tools.coder import generate, modify
@@ -93,10 +92,10 @@ async def server_run_stream(settings: Settings, session_id: str):
     agent = create_agent(settings)
     summarizer = build_summarizer_agent(settings)
     # 初始化命令行输入处理器
-    project_root = Path(__file__).parent
-    input_handler = InputHandler(project_root, session_id=session_id)
+    config_path = settings.config_path
+    input_handler = InputHandler(config_path, session_id=session_id)
     input_handler.initialize()
-    session_store = SessionStore(project_root, session_id=session_id)
+    session_store = SessionStore(config_path, session_id=session_id)
     all_messages: list[ModelMessage] = session_store.load_message_history()
     conversation_id = session_id
     session_meta = session_store.load_meta()
@@ -133,7 +132,7 @@ async def server_run_stream(settings: Settings, session_id: str):
             client=client,
             session_id=session_id,
             conversation_id=conversation_id,
-            project_root=project_root,
+            config_path=config_path,
             settings=settings,
             session_store=session_store,
         )
@@ -261,17 +260,17 @@ async def server_run(settings: Settings):
     configure_observability(settings)
     agent = create_agent(settings)
     summarizer = build_summarizer_agent(settings)
-    project_root = Path(__file__).parent
+    config_path = settings.config_path
     session_id = "sync-session"
     conversation_id = session_id
-    session_store = SessionStore(project_root, session_id=session_id)
+    session_store = SessionStore(config_path, session_id=session_id)
     async with AsyncClient() as client:
         instrument_http_client(client)
         deps = Deps(
             client=client,
             session_id=session_id,
             conversation_id=conversation_id,
-            project_root=project_root,
+            config_path=config_path,
             settings=settings,
             session_store=session_store,
         )

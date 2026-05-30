@@ -14,6 +14,6 @@ class Deps:
     client: AsyncClient
     session_id: str
     conversation_id: str
-    project_root: Path
+    config_path: Path
     settings: Settings
     session_store: SessionStore

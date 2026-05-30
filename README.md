@@ -24,6 +24,18 @@ Start the CLI app with:
 uv run main.py
 ```
 
+Session data is stored under:
+
+```text
+${CONFIG_PATH:-~}/.agentz/sessions/<session_id>/
+```
+
+By default `CONFIG_PATH` resolves to the current user's home directory. You can override it in `.env`:
+
+```bash
+CONFIG_PATH=~
+```
+
 ## MCP config
 
 The app now supports loading MCP servers from a project-level `mcp.json`.

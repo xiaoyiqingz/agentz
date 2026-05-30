@@ -27,8 +27,8 @@ from context.session_store import SessionStore
 class TestHistoryProcessors(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.project_root = Path(self.temp_dir.name)
-        self.session_store = SessionStore(self.project_root, session_id="session-1")
+        self.config_path = Path(self.temp_dir.name)
+        self.session_store = SessionStore(self.config_path, session_id="session-1")
         self.settings = load_settings(
             {
                 "CONTEXT_KEEP_RECENT_TURNS": "2",
@@ -40,7 +40,7 @@ class TestHistoryProcessors(unittest.TestCase):
             client=None,  # type: ignore[arg-type]
             session_id="session-1",
             conversation_id="conversation-1",
-            project_root=self.project_root,
+            config_path=self.config_path,
             settings=self.settings,
             session_store=self.session_store,
         )

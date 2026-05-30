@@ -40,6 +40,7 @@ class Settings:
     models: ModelSettings
     observability: ObservabilitySettings
     tavily_api_key: str | None
+    config_path: Path
     mcp_config_path: Path
     skills_dir: Path
     context_keep_recent_turns: int
@@ -51,7 +52,7 @@ class Settings:
 def load_settings(env: dict[str, str] | None = None) -> Settings:
     """Build project settings from process environment."""
     values = env or os.environ
-    project_root = Path(__file__).resolve().parent
+    base_path = Path(__file__).resolve().parent
 
     return Settings(
         models=ModelSettings(
@@ -89,11 +90,12 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
             langfuse_secret_key=values.get("LANGFUSE_SECRET_KEY"),
         ),
         tavily_api_key=values.get("TAVILY_API_KEY"),
+        config_path=_resolve_path(values.get("CONFIG_PATH", "~"), base_path),
         mcp_config_path=_resolve_path(
-            values.get("MCP_CONFIG_PATH", "./mcp.json"), project_root
+            values.get("MCP_CONFIG_PATH", "./mcp.json"), base_path
         ),
         skills_dir=_resolve_path(
-            values.get("SKILLS_DIR", ".agents/skills"), project_root
+            values.get("SKILLS_DIR", ".agents/skills"), base_path
         ),
         context_keep_recent_turns=int(
             values.get(
@@ -119,8 +121,8 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
     )
 
 
-def _resolve_path(raw_path: str, project_root: Path) -> Path:
+def _resolve_path(raw_path: str, base_path: Path) -> Path:
     candidate = Path(raw_path).expanduser()
     if candidate.is_absolute():
         return candidate
-    return (project_root / candidate).resolve()
+    return (base_path / candidate).resolve()
