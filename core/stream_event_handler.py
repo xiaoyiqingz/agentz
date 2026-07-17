@@ -4,8 +4,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from pydantic_ai.messages import (
-    BuiltinToolCallEvent,
-    BuiltinToolResultEvent,
     FunctionToolCallEvent,
     FunctionToolResultEvent,
     PartDeltaEvent,
@@ -59,10 +57,6 @@ async def consume_stream_events(
             # 如需排查工具返回内容，可临时恢复这段输出。
             # if event.result.tool_name not in hidden_tool_result_names:
             #     formatter.print_tool_result(event.result.content)
-            pass
-        elif isinstance(event, BuiltinToolCallEvent):
-            formatter.print_status(f"正在调用内置工具：{event.part.tool_name}")
-        elif isinstance(event, BuiltinToolResultEvent):
             pass
         elif isinstance(event, AgentRunResultEvent):
             run_result = event.result

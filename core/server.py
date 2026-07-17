@@ -2,12 +2,14 @@ from pathlib import Path
 
 from httpx import AsyncClient
 from pydantic_ai import Agent
+from pydantic_ai.capabilities import ProcessHistory
 from pydantic_ai.messages import ModelMessage
 
 from commands.builtin_commands import CommandType, process_builtin_command
 from config.settings import Settings
 from infra.observability import configure_observability, instrument_http_client
 from models.mimo import build_mimo_model
+from models.deepseek import build_deepseek_model
 from prompts.prompt import get_smart_assistant_prompt
 from tools.tools_registry import (
     get_all_tools,
@@ -29,10 +31,13 @@ def create_agent(settings: Settings) -> Agent:
     toolsets_list = get_all_toolsets(settings)
 
     agent_kwargs = {
-        "model": build_mimo_model(settings),
+        "model": build_deepseek_model(settings),
         "deps_type": Deps,
         "system_prompt": get_smart_assistant_prompt(),
-        "history_processors": build_history_processors(settings),
+        "capabilities": [
+            ProcessHistory(processor)
+            for processor in build_history_processors(settings)
+        ],
     }
     if tools_list:
         agent_kwargs["tools"] = tools_list

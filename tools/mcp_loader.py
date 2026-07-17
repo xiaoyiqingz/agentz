@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from pydantic_ai.mcp import load_mcp_servers
+from pydantic_ai.mcp import load_mcp_toolsets
 
 from config.settings import Settings
 
@@ -31,7 +31,15 @@ def get_configured_mcp_toolsets(settings: Settings) -> list[Any]:
     if not config_path.exists():
         return []
 
-    return load_mcp_servers(config_path)
+    try:
+        return load_mcp_toolsets(config_path)
+    except ValueError as exc:
+        # Pydantic AI v2 resolves ${VAR} placeholders while loading. Keep MCP
+        # optional when a project ships a template mcp.json without its runtime
+        # credentials/command configured yet.
+        if "Environment variable" in str(exc):
+            return []
+        raise
 
 
 def get_all_mcp_toolsets(settings: Settings) -> list[Any]:
