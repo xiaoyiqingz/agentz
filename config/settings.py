@@ -57,6 +57,8 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
     values = env or os.environ
     base_path = Path(__file__).resolve().parent.parent
 
+    agentz_home = _resolve_path(values.get("AGENTZ_HOME", "~/.agentz"), base_path)
+
     return Settings(
         models=ModelSettings(
             deepseek=HostedModelSettings(
@@ -93,13 +95,13 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
             langfuse_secret_key=values.get("LANGFUSE_SECRET_KEY"),
         ),
         tavily_api_key=values.get("TAVILY_API_KEY"),
-        agentz_home=_resolve_path(values.get("AGENTZ_HOME", "~/.agentz"), base_path),
-        mcp_config_path=_resolve_path(
-            values.get("MCP_CONFIG_PATH", "./mcp.json"), base_path
-        ),
-        skills_dir=_resolve_path(
-            values.get("SKILLS_DIR", ".agents/skills"), base_path
-        ),
+        agentz_home=agentz_home,
+        mcp_config_path=_resolve_path(values["MCP_CONFIG_PATH"], base_path)
+        if values.get("MCP_CONFIG_PATH")
+        else agentz_home / "mcp.json",
+        skills_dir=_resolve_path(values["SKILLS_DIR"], base_path)
+        if values.get("SKILLS_DIR")
+        else agentz_home / "skills",
         context_target_tokens=int(values.get("CONTEXT_TARGET_TOKENS", "48000")),
         context_keep_messages=int(values.get("CONTEXT_KEEP_MESSAGES", "20")),
         context_keep_tool_pairs=int(values.get("CONTEXT_KEEP_TOOL_PAIRS", "4")),

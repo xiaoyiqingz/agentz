@@ -83,6 +83,12 @@ class TestConfig(unittest.TestCase):
 
         self.assertEqual(settings.agentz_home, Path("/tmp/agentz-home"))
 
+    def test_load_settings_defaults_skills_and_mcp_to_agentz_home(self):
+        settings = load_settings({"AGENTZ_HOME": "/tmp/agentz-home"})
+
+        self.assertEqual(settings.skills_dir, Path("/tmp/agentz-home/skills"))
+        self.assertEqual(settings.mcp_config_path, Path("/tmp/agentz-home/mcp.json"))
+
     def test_load_settings_accepts_compaction_overrides(self):
         settings = load_settings(
             {
