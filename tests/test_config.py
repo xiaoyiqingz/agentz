@@ -82,3 +82,33 @@ class TestConfig(unittest.TestCase):
         )
 
         self.assertEqual(settings.config_path, Path("/tmp/agentz-config"))
+
+    def test_load_settings_accepts_compaction_overrides(self):
+        settings = load_settings(
+            {
+                "CONTEXT_TARGET_TOKENS": "12000",
+                "CONTEXT_KEEP_MESSAGES": "8",
+                "CONTEXT_KEEP_TOOL_PAIRS": "2",
+                "CONTEXT_MAX_PART_TOKENS": "6000",
+                "SKILLS_DIR": "./.agents/skills",
+                "MCP_CONFIG_PATH": "./mcp.json",
+            }
+        )
+
+        self.assertEqual(settings.context_target_tokens, 12000)
+        self.assertEqual(settings.context_keep_messages, 8)
+        self.assertEqual(settings.context_keep_tool_pairs, 2)
+        self.assertEqual(settings.context_max_part_tokens, 6000)
+
+    def test_load_settings_accepts_planning_overrides(self):
+        settings = load_settings(
+            {
+                "USE_PLANNING_MODE": "false",
+                "PLANNING_CACHE_TTL": "1h",
+                "SKILLS_DIR": "./.agents/skills",
+                "MCP_CONFIG_PATH": "./mcp.json",
+            }
+        )
+
+        self.assertFalse(settings.planning_enabled)
+        self.assertEqual(settings.planning_cache_ttl, "1h")

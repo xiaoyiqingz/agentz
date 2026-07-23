@@ -8,6 +8,7 @@ dependencies = [
     "griffelib==2.0.0",
     "httpx[socks]>=0.28.1",
     "pydantic-ai[duckduckgo,tavily]==2.14.1",
+    "pydantic-ai-harness==0.9.0",
     "pydantic-ai-skills==1.1.0",
     "prompt-toolkit>=3.0.52",
     "python-dotenv>=1.1.1",

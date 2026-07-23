@@ -2,7 +2,7 @@ from pathlib import Path
 
 from httpx import AsyncClient
 from pydantic_ai import Agent
-from pydantic_ai.capabilities import ProcessHistory
+from pydantic_ai_harness.planning import Planning
 from pydantic_ai.messages import ModelMessage
 
 from commands.builtin_commands import CommandType, process_builtin_command
@@ -20,24 +20,28 @@ from ui.cli.input_handler import InputHandler
 from ui.cli.output_formatter import create_formatter
 
 from .context.deps import Deps
-from .context.history_processors import build_history_processors
+from .context.compaction import build_compaction
 from .context.session_runtime import initialize_session_runtime
-from .context.summarizer import build_summarizer_agent, maybe_refresh_summary
+from .readonly_filesystem import build_readonly_filesystem
 from .stream_event_handler import consume_stream_events
 
 
-def create_agent(settings: Settings) -> Agent:
+def create_agent(settings: Settings, project_path: Path) -> Agent:
     tools_list = get_all_tools(settings)
     toolsets_list = get_all_toolsets(settings)
+
+    capabilities = [
+        build_compaction(settings),
+        build_readonly_filesystem(project_path),
+    ]
+    if settings.planning_enabled:
+        capabilities.append(Planning(cache_ttl=settings.planning_cache_ttl))
 
     agent_kwargs = {
         "model": build_deepseek_model(settings),
         "deps_type": Deps,
         "system_prompt": get_smart_assistant_prompt(),
-        "capabilities": [
-            ProcessHistory(processor)
-            for processor in build_history_processors(settings)
-        ],
+        "capabilities": capabilities,
     }
     if tools_list:
         agent_kwargs["tools"] = tools_list
@@ -54,8 +58,6 @@ async def server_run_stream(
 ):
     tool_status_labels = get_tool_status_labels()
     configure_observability(settings)
-    agent = create_agent(settings)
-    summarizer = build_summarizer_agent(settings)
     # 初始化命令行输入处理器
     config_path = settings.config_path
     input_handler = InputHandler(config_path, session_id=session_id)
@@ -69,6 +71,7 @@ async def server_run_stream(
     all_messages: list[ModelMessage] = session_runtime.all_messages
     conversation_id = session_runtime.conversation_id
     project_path = session_runtime.project_path
+    agent = create_agent(settings, project_path)
     print(f"当前项目目录: {project_path}")
     if session_runtime.ignored_cli_project_path:
         print("已恢复该 session 绑定的项目目录，忽略本次传入的 --project-path。")
@@ -146,12 +149,8 @@ async def server_run_stream(
                         raise RuntimeError("Agent 流式运行未返回最终结果")
 
                     all_messages = run_result.all_messages()
-                    # readline 输入历史和 Pydantic AI 消息历史分别持久化。
+                    # readline 输入历史和已压缩的 Pydantic AI 消息历史分别持久化。
                     session_store.save_message_history(all_messages)
-                    try:
-                        await maybe_refresh_summary(summarizer, deps, all_messages)
-                    except Exception as exc:
-                        print(f"\n警告：刷新会话摘要失败：{exc}\n")
                     input_handler.save_history()
 
                     print()  # 空行分隔
@@ -173,8 +172,6 @@ async def server_run_stream(
 
 async def server_run(settings: Settings):
     configure_observability(settings)
-    agent = create_agent(settings)
-    summarizer = build_summarizer_agent(settings)
     config_path = settings.config_path
     session_id = "sync-session"
     session_runtime = initialize_session_runtime(
@@ -185,6 +182,7 @@ async def server_run(settings: Settings):
     session_store = session_runtime.session_store
     conversation_id = session_runtime.conversation_id
     project_path = session_runtime.project_path
+    agent = create_agent(settings, project_path)
     async with AsyncClient() as client:
         instrument_http_client(client)
         deps = Deps(
@@ -210,9 +208,5 @@ async def server_run(settings: Settings):
                 },
             )
             session_store.save_message_history(result.all_messages())
-            try:
-                await maybe_refresh_summary(summarizer, deps, result.all_messages())
-            except Exception as exc:
-                print(f"\n警告：刷新会话摘要失败：{exc}\n")
             print(f"返回结果: {result.output}")
             print()

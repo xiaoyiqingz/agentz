@@ -1,32 +1,20 @@
 from __future__ import annotations
 
-import shlex
+import os
+import re
 import subprocess
 from pathlib import Path
+from typing import Literal
 
 from pydantic_ai import RunContext
 
 from core.context.deps import Deps
-from tools.file_reader import read_file_lines
 
 MAX_OUTPUT_CHARS = 12000
 DEFAULT_TIMEOUT_SECONDS = 15
-DISALLOWED_SHELL_SNIPPETS = ("&&", "||", ";", "|", ">", "<", "$(", "`", "\n")
-DISALLOWED_GIT_ARGS = (
-    "-c",
-    "--exec-path",
-    "--git-dir",
-    "--work-tree",
-    "--output",
-    "--no-index",
-    "--ext-diff",
-)
-ALLOWED_GIT_SUBCOMMANDS = {"status", "diff", "log"}
-ALLOWED_RG_FLAGS = {"-n", "-i", "-A", "-B", "-C", "--glob", "-g"}
+_SAFE_REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/@-]*$")
 
-
-class CommandRejectedError(ValueError):
-    """Raised when a review command falls outside the readonly whitelist."""
+GitOperation = Literal["status", "diff", "log", "show", "blame", "grep", "merge_base"]
 
 
 def resolve_repo_path(project_path: Path, candidate: str | Path) -> Path:
@@ -44,221 +32,129 @@ def resolve_repo_path(project_path: Path, candidate: str | Path) -> Path:
     return resolved
 
 
-def read_project_file(
+def git_readonly(
     project_path: Path,
-    file_path: str,
-    start_line: int,
-    end_line: int,
+    operation: GitOperation,
+    *,
+    base_ref: str | None = None,
+    target_ref: str = "HEAD",
+    path: str | None = None,
+    pattern: str | None = None,
+    start_line: int | None = None,
+    end_line: int | None = None,
+    stat: bool = False,
+    max_entries: int = 50,
 ) -> str:
-    resolved = resolve_repo_path(project_path, file_path)
-    total_lines = _count_file_lines(resolved)
-    effective_end_line = end_line
-    if total_lines > 0 and start_line <= total_lines:
-        effective_end_line = min(end_line, total_lines)
-    return read_file_lines(str(resolved), start_line, effective_end_line)
+    """Run a bounded, read-only Git inspection command for code review."""
+    _validate_ref(target_ref)
+    if base_ref is not None:
+        _validate_ref(base_ref)
+    if not 1 <= max_entries <= 200:
+        raise ValueError("max_entries 必须在 1 到 200 之间")
+
+    argv = ["git", "--no-pager"]
+    if operation == "status":
+        argv.extend(["status", "--short", "--branch"])
+    elif operation == "diff":
+        argv.extend(["diff", "--no-ext-diff", "--no-textconv"])
+        if stat:
+            argv.append("--stat")
+        if base_ref is not None:
+            argv.append(f"{base_ref}...{target_ref}")
+        if path is not None:
+            argv.extend(["--", _relative_path(project_path, path)])
+    elif operation == "log":
+        argv.extend(["log", "--oneline", f"--max-count={max_entries}"])
+        if base_ref is not None:
+            argv.append(f"{base_ref}..{target_ref}")
+        else:
+            argv.append(target_ref)
+    elif operation == "show":
+        argv.extend(["show", "--no-ext-diff", "--no-textconv", target_ref])
+        if stat:
+            argv.append("--stat")
+    elif operation == "blame":
+        if path is None:
+            raise ValueError("git blame 必须提供 path")
+        argv.extend(["blame"])
+        if start_line is not None or end_line is not None:
+            if start_line is None or end_line is None or start_line < 1 or end_line < start_line:
+                raise ValueError("blame 的行范围无效")
+            argv.extend(["-L", f"{start_line},{end_line}"])
+        argv.extend([target_ref, "--", _relative_path(project_path, path)])
+    elif operation == "grep":
+        if not pattern or len(pattern) > 500:
+            raise ValueError("git grep 必须提供不超过 500 字符的 pattern")
+        argv.extend(["grep", "-n", "--", pattern])
+        if path is not None:
+            argv.append(_relative_path(project_path, path))
+    elif operation == "merge_base":
+        if base_ref is None:
+            raise ValueError("git merge_base 必须提供 base_ref")
+        argv.extend(["merge-base", base_ref, target_ref])
+    else:  # pragma: no cover - Literal is enforced by Pydantic AI tool validation.
+        raise ValueError(f"不支持的 Git 操作: {operation}")
+
+    return _run_git(argv, project_path)
 
 
-def git_status_summary(project_path: Path) -> str:
-    return _run_review_subprocess(
-        ["git", "status", "--short", "--branch"],
-        cwd=project_path,
-    )
-
-
-def git_diff_summary(project_path: Path, paths: list[str] | None = None) -> str:
-    argv = ["git", "diff", "--stat"]
-    if paths:
-        argv.append("--")
-        argv.extend(str(resolve_repo_path(project_path, path).relative_to(project_path)) for path in paths)
-    return _run_review_subprocess(argv, cwd=project_path)
-
-
-def git_diff_file(project_path: Path, file_path: str, max_lines: int = 400) -> str:
-    resolved = resolve_repo_path(project_path, file_path)
-    relative_path = str(resolved.relative_to(project_path))
-    output = _run_review_subprocess(
-        ["git", "diff", "--", relative_path],
-        cwd=project_path,
-    )
-    lines = output.splitlines()
-    if len(lines) <= max_lines:
-        return output
-    truncated = "\n".join(lines[:max_lines])
-    return f"{truncated}\n\n[输出已截断，共 {len(lines)} 行，仅显示前 {max_lines} 行]"
-
-
-def search_repo(
-    project_path: Path,
-    pattern: str,
-    glob: str | None = None,
-    max_matches: int = 50,
-    context: int = 2,
-) -> str:
-    argv = ["rg", "-n", "--max-count", str(max_matches), "-C", str(context), pattern]
-    if glob:
-        argv.extend(["--glob", glob])
-    argv.append(".")
-    return _run_review_subprocess(argv, cwd=project_path)
-
-
-def exec_review_command(project_path: Path, command: str) -> str:
-    argv = _parse_review_command(project_path, command)
-    return _run_review_subprocess(argv, cwd=project_path)
-
-
-async def read_project_file_tool(
-    ctx: RunContext[Deps], file_path: str, start_line: int, end_line: int
-) -> str:
-    return read_project_file(ctx.deps.project_path, file_path, start_line, end_line)
-
-
-async def git_status_summary_tool(ctx: RunContext[Deps]) -> str:
-    return git_status_summary(ctx.deps.project_path)
-
-
-async def git_diff_summary_tool(
-    ctx: RunContext[Deps], paths: list[str] | None = None
-) -> str:
-    return git_diff_summary(ctx.deps.project_path, paths)
-
-
-async def git_diff_file_tool(
-    ctx: RunContext[Deps], file_path: str, max_lines: int = 400
-) -> str:
-    return git_diff_file(ctx.deps.project_path, file_path, max_lines=max_lines)
-
-
-async def search_repo_tool(
+async def git_readonly_tool(
     ctx: RunContext[Deps],
-    pattern: str,
-    glob: str | None = None,
-    max_matches: int = 50,
-    context: int = 2,
+    operation: GitOperation,
+    base_ref: str | None = None,
+    target_ref: str = "HEAD",
+    path: str | None = None,
+    pattern: str | None = None,
+    start_line: int | None = None,
+    end_line: int | None = None,
+    stat: bool = False,
+    max_entries: int = 50,
 ) -> str:
-    return search_repo(
+    """Inspect Git history and diffs without changing repository state."""
+    return git_readonly(
         ctx.deps.project_path,
-        pattern,
-        glob=glob,
-        max_matches=max_matches,
-        context=context,
+        operation,
+        base_ref=base_ref,
+        target_ref=target_ref,
+        path=path,
+        pattern=pattern,
+        start_line=start_line,
+        end_line=end_line,
+        stat=stat,
+        max_entries=max_entries,
     )
 
 
-async def exec_review_command_tool(ctx: RunContext[Deps], command: str) -> str:
-    return exec_review_command(ctx.deps.project_path, command)
+def _validate_ref(ref: str) -> None:
+    if not ref or len(ref) > 200 or ".." in ref or not _SAFE_REF.fullmatch(ref):
+        raise ValueError(f"非法 Git 引用: {ref!r}")
 
 
-def _count_file_lines(file_path: Path) -> int:
-    with file_path.open("r", encoding="utf-8") as file:
-        return sum(1 for _ in file)
+def _relative_path(project_path: Path, path: str) -> str:
+    return str(resolve_repo_path(project_path, path).relative_to(project_path.resolve()))
 
 
-def _parse_review_command(project_path: Path, command: str) -> list[str]:
-    stripped = command.strip()
-    if not stripped:
-        raise CommandRejectedError("命令不能为空")
-    if any(snippet in stripped for snippet in DISALLOWED_SHELL_SNIPPETS):
-        raise CommandRejectedError("命令包含不允许的 shell 连接或重定向语法")
-
-    argv = shlex.split(stripped, posix=True)
-    if not argv:
-        raise CommandRejectedError("命令不能为空")
-
-    program = argv[0]
-    if program == "git":
-        return _validate_git_command(project_path, argv)
-    if program == "rg":
-        return _validate_rg_command(project_path, argv)
-    raise CommandRejectedError(f"不支持的 review 命令: {program}")
-
-
-def _validate_git_command(project_path: Path, argv: list[str]) -> list[str]:
-    if len(argv) < 2:
-        raise CommandRejectedError("git review 命令必须包含子命令")
-    subcommand = argv[1]
-    if subcommand not in ALLOWED_GIT_SUBCOMMANDS:
-        raise CommandRejectedError(f"不允许的 git 子命令: {subcommand}")
-
-    validated = argv[:2]
-    for token in argv[2:]:
-        if any(token == bad or token.startswith(f"{bad}=") for bad in DISALLOWED_GIT_ARGS):
-            raise CommandRejectedError(f"不允许的 git 参数: {token}")
-        if subcommand == "status":
-            validated.append(token)
-            continue
-        if token.startswith("-"):
-            validated.append(token)
-            continue
-        if "/" in token or token.startswith("."):
-            resolved = resolve_repo_path(project_path, token)
-            validated.append(str(resolved.relative_to(project_path)))
-            continue
-        validated.append(token)
-    return validated
-
-
-def _validate_rg_command(project_path: Path, argv: list[str]) -> list[str]:
-    validated = ["rg"]
-    pattern_seen = False
-    index = 1
-    while index < len(argv):
-        token = argv[index]
-        if token in {"--glob", "-g"}:
-            if index + 1 >= len(argv):
-                raise CommandRejectedError(f"参数缺少值: {token}")
-            validated.extend([token, argv[index + 1]])
-            index += 2
-            continue
-        if token in ALLOWED_RG_FLAGS:
-            validated.append(token)
-            index += 1
-            continue
-        if token.startswith("-"):
-            raise CommandRejectedError(f"不允许的 rg 参数: {token}")
-        if not pattern_seen:
-            validated.append(token)
-            pattern_seen = True
-            index += 1
-            continue
-        resolved = resolve_repo_path(project_path, token)
-        validated.append(str(resolved.relative_to(project_path)))
-        index += 1
-    if not pattern_seen:
-        raise CommandRejectedError("rg review 命令必须包含搜索模式")
-    return validated
-
-
-def _run_review_subprocess(
-    argv: list[str],
-    cwd: Path,
-    timeout: int = DEFAULT_TIMEOUT_SECONDS,
-    max_output_chars: int = MAX_OUTPUT_CHARS,
-) -> str:
+def _run_git(argv: list[str], cwd: Path) -> str:
+    env = {
+        "PATH": os.environ.get("PATH", ""),
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_OPTIONAL_LOCKS": "0",
+        "GIT_PAGER": "cat",
+        "NO_COLOR": "1",
+    }
     completed = subprocess.run(
         argv,
         cwd=cwd,
+        env=env,
         capture_output=True,
         text=True,
-        shell=False,
-        timeout=timeout,
+        timeout=DEFAULT_TIMEOUT_SECONDS,
         check=False,
     )
-    sections: list[str] = []
-    if completed.stdout:
-        sections.append(completed.stdout.strip())
-    if completed.stderr:
-        sections.append(f"[stderr]\n{completed.stderr.strip()}")
-    if not sections:
-        sections.append("[命令无输出]")
-
-    output = "\n\n".join(section for section in sections if section)
-    if len(output) > max_output_chars:
-        output = (
-            f"{output[:max_output_chars]}\n\n"
-            f"[输出已截断，总长度超过 {max_output_chars} 字符]"
-        )
-    if argv and argv[0] == "rg" and completed.returncode == 1:
-        return "[无匹配结果]"
-    if completed.returncode != 0:
-        return f"[exit_code={completed.returncode}]\n{output}"
+    output = completed.stdout if completed.returncode == 0 else completed.stderr
+    output = output.strip()
+    if not output:
+        return "(无输出)"
+    if len(output) > MAX_OUTPUT_CHARS:
+        return f"{output[:MAX_OUTPUT_CHARS]}\n\n[输出已截断]"
     return output

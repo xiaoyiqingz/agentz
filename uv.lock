@@ -11,6 +11,7 @@ dependencies = [
     { name = "httpx", extra = ["socks"] },
     { name = "prompt-toolkit" },
     { name = "pydantic-ai", extra = ["duckduckgo", "tavily"] },
+    { name = "pydantic-ai-harness" },
     { name = "pydantic-ai-skills" },
     { name = "python-dotenv" },
     { name = "rich" },
@@ -22,6 +23,7 @@ requires-dist = [
     { name = "httpx", extras = ["socks"], specifier = ">=0.28.1" },
     { name = "prompt-toolkit", specifier = ">=3.0.52" },
     { name = "pydantic-ai", extras = ["duckduckgo", "tavily"], specifier = "==2.14.1" },
+    { name = "pydantic-ai-harness", specifier = "==0.9.0" },
     { name = "pydantic-ai-skills", specifier = "==1.1.0" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "rich", specifier = ">=13.0.0" },
@@ -1253,6 +1255,19 @@ duckduckgo = [
 ]
 tavily = [
     { name = "pydantic-ai-slim", extra = ["tavily"] },
+]
+
+[[package]]
+name = "pydantic-ai-harness"
+version = "0.9.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx" },
+    { name = "pydantic-ai-slim" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c9/90/196ae7efda7a4524e53664bf3ae647ccf33c9511463b4c7dde1498b458a6/pydantic_ai_harness-0.9.0.tar.gz", hash = "sha256:244b932ebd543497b2ae7fca695b5f01c44a0b5897fa100c31816617ae0f6e54", size = 1077329, upload-time = "2026-07-22T01:34:03.377Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/59/4d/4b99d580dad3779375737258f6c43da814e941b4286db526ca06524d609c/pydantic_ai_harness-0.9.0-py3-none-any.whl", hash = "sha256:792fc5b79b240bb34704ff2093a1236a13c5b18fa490e3d7fcdddc63b6a58284", size = 344201, upload-time = "2026-07-22T01:34:01.805Z" },
 ]
 
 [[package]]

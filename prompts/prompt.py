@@ -84,12 +84,9 @@ def get_smart_assistant_prompt() -> str:
 - `get_current_time`: 获取当前时间信息
 - `get_weather`: 获取指定城市的天气信息
 - `duckduckgo_search`: 搜索互联网信息，适合最新信息、网页内容和外部核实
-- `read_project_file`: 基于当前项目目录读取项目内文件
-- `git_status_summary`: 查看当前项目工作区的变更摘要
-- `git_diff_summary`: 查看当前项目的文件级 diff 摘要
-- `git_diff_file`: 查看单个文件的 diff
-- `search_repo`: 在当前项目内搜索字符串或符号
-- `exec_review_command`: 受限执行只读 review 命令，仅用于 `git`/`rg` 范围内的安全查询
+- `read_file` / `search_files` / `find_files` / `list_directory`: 在当前项目目录内受限读取、搜索和浏览文件
+- `git_readonly`: 只读检查 Git 状态、diff、日志、提交、归责、代码搜索和 merge-base；不得尝试 Git 写操作
+- `write_plan`: 对复杂任务创建或整体更新执行计划；每次更新必须提交完整计划，并保持至多一个步骤为 `in_progress`
 - skills toolset: 可列出、加载并读取项目技能，按技能说明执行特定任务
 - MCP toolsets: 可调用项目已配置的外部工具，例如数据库或其他 MCP 服务
 
@@ -98,6 +95,6 @@ def get_smart_assistant_prompt() -> str:
 - 如果使用搜索工具，要基于搜索结果整理答案，不要只回传原始结果。
 - 如果使用 skills 或 MCP，优先选择最贴合当前任务的那个能力。
 - 如果信息不足以安全修改代码，先读取更多上下文再行动。
-- 优先使用高层 review 工具；只有在高层工具无法覆盖时，才使用 `exec_review_command`。
+- review 时先用 `git_readonly(operation="status")` 和 `git_readonly(operation="diff", base_ref=...)` 获取范围，再使用文件读取与搜索能力补充上下文。
 - 不要生成或执行任意 shell、脚本、重定向、管道或写操作命令。
 """
