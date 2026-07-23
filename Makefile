@@ -17,7 +17,9 @@ PYINSTALLER_COMMON := --noconfirm --clean --name $(APP_NAME) \
 	--collect-all pydantic_ai \
 	--collect-all pydantic_ai_harness \
 	--collect-all pydantic_ai_skills \
-	--copy-metadata genai-prices
+	--copy-metadata genai-prices \
+	--copy-metadata fastmcp-slim \
+	--copy-metadata mcp
 
 .PHONY: help run build-onedir build-onefile
 

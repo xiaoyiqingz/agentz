@@ -76,9 +76,10 @@ async def server_run_stream(
     if session_runtime.ignored_cli_project_path:
         print("已恢复该 session 绑定的项目目录，忽略本次传入的 --project-path。")
 
-    # 创建统一的格式化器
-    # 部分终端对 rich Live 的重绘兼容性较差，会把每次刷新都落成新行。
-    # 因此默认关闭 Live，改为直接流式输出原始文本，结束时不再重复整段渲染。
+    # 创建统一的格式化器。
+    # 部分终端对 rich Live 的重绘兼容性较差，会把每次刷新都落成新行，
+    # 因此默认关闭 Live；回答完成后再统一渲染 Markdown，表格和代码块
+    # 仍能获得稳定的终端展示效果。
     formatter = create_formatter(use_live=False)
 
     async with AsyncClient() as client:
