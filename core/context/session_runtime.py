@@ -21,12 +21,12 @@ class SessionRuntime:
 
 
 def initialize_session_runtime(
-    config_path: Path,
+    agentz_home: Path,
     session_id: str,
     requested_project_path: str | None = None,
     cwd: Path | None = None,
 ) -> SessionRuntime:
-    session_store = SessionStore(config_path, session_id=session_id)
+    session_store = SessionStore(agentz_home, session_id=session_id)
     all_messages = session_store.load_message_history()
     conversation_id = session_id
     session_meta = session_store.load_meta()

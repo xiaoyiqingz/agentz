@@ -13,10 +13,10 @@ from .models import ConversationSummary, SessionMeta
 class SessionStore:
     """Persist session-scoped context artifacts on disk."""
 
-    def __init__(self, config_path: Path, session_id: str):
-        self.config_path = config_path
+    def __init__(self, agentz_home: Path, session_id: str):
+        self.agentz_home = agentz_home
         self.session_id = session_id
-        self._session_dir = self.config_path / ".agentz" / "sessions" / session_id
+        self._session_dir = self.agentz_home / "sessions" / session_id
         self.message_history_path = self._session_dir / "agentz_message_history.json"
         self.meta_path = self._session_dir / "session_meta.json"
         self.summary_path = self._session_dir / "conversation_summary.json"

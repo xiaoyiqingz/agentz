@@ -41,7 +41,7 @@ class Settings:
     models: ModelSettings
     observability: ObservabilitySettings
     tavily_api_key: str | None
-    config_path: Path
+    agentz_home: Path
     mcp_config_path: Path
     skills_dir: Path
     context_target_tokens: int
@@ -93,7 +93,7 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
             langfuse_secret_key=values.get("LANGFUSE_SECRET_KEY"),
         ),
         tavily_api_key=values.get("TAVILY_API_KEY"),
-        config_path=_resolve_path(values.get("CONFIG_PATH", "~"), base_path),
+        agentz_home=_resolve_path(values.get("AGENTZ_HOME", "~/.agentz"), base_path),
         mcp_config_path=_resolve_path(
             values.get("MCP_CONFIG_PATH", "./mcp.json"), base_path
         ),

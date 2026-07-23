@@ -59,11 +59,11 @@ async def server_run_stream(
     tool_status_labels = get_tool_status_labels()
     configure_observability(settings)
     # 初始化命令行输入处理器
-    config_path = settings.config_path
-    input_handler = InputHandler(config_path, session_id=session_id)
+    agentz_home = settings.agentz_home
+    input_handler = InputHandler(agentz_home, session_id=session_id)
     input_handler.initialize()
     session_runtime = initialize_session_runtime(
-        config_path=config_path,
+        agentz_home=agentz_home,
         session_id=session_id,
         requested_project_path=requested_project_path,
     )
@@ -87,7 +87,7 @@ async def server_run_stream(
             client=client,
             session_id=session_id,
             conversation_id=conversation_id,
-            config_path=config_path,
+            agentz_home=agentz_home,
             project_path=project_path,
             settings=settings,
             session_store=session_store,
@@ -172,10 +172,10 @@ async def server_run_stream(
 
 async def server_run(settings: Settings):
     configure_observability(settings)
-    config_path = settings.config_path
+    agentz_home = settings.agentz_home
     session_id = "sync-session"
     session_runtime = initialize_session_runtime(
-        config_path=config_path,
+        agentz_home=agentz_home,
         session_id=session_id,
         cwd=Path.cwd().resolve(),
     )
@@ -189,7 +189,7 @@ async def server_run(settings: Settings):
             client=client,
             session_id=session_id,
             conversation_id=conversation_id,
-            config_path=config_path,
+            agentz_home=agentz_home,
             project_path=project_path,
             settings=settings,
             session_store=session_store,

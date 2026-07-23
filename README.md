@@ -44,13 +44,13 @@ scripts/run_tests.py    # test runner helper
 Session data is stored under:
 
 ```text
-${CONFIG_PATH:-~}/.agentz/sessions/<session_id>/
+${AGENTZ_HOME:-~/.agentz}/sessions/<session_id>/
 ```
 
-By default `CONFIG_PATH` resolves to the current user's home directory. You can override it in `.env`:
+By default `AGENTZ_HOME` resolves to `~/.agentz`. You can override it in `.env`:
 
 ```bash
-CONFIG_PATH=~
+AGENTZ_HOME=~/.agentz
 ```
 
 The bound project directory is stored in the current session metadata. If `--project-path` is omitted, the CLI defaults to the current working directory. When resuming with `--resume`, the stored project directory is restored and takes precedence over any new `--project-path` value.

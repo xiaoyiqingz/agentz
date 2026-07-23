@@ -20,7 +20,7 @@ class TestConfig(unittest.TestCase):
         )
         self.assertIsNone(settings.observability.langfuse_public_key)
         self.assertIsNone(settings.observability.langfuse_secret_key)
-        self.assertEqual(settings.config_path, Path.home())
+        self.assertEqual(settings.agentz_home, Path.home() / ".agentz")
 
     def test_load_settings_includes_mimo_defaults(self):
         settings = load_settings(
@@ -72,16 +72,16 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(settings.observability.langfuse_public_key, "pk-lf-test")
         self.assertEqual(settings.observability.langfuse_secret_key, "sk-lf-test")
 
-    def test_load_settings_accepts_config_path_override(self):
+    def test_load_settings_accepts_agentz_home_override(self):
         settings = load_settings(
             {
-                "CONFIG_PATH": "/tmp/agentz-config",
+                "AGENTZ_HOME": "/tmp/agentz-home",
                 "SKILLS_DIR": "./.agents/skills",
                 "MCP_CONFIG_PATH": "./mcp.json",
             }
         )
 
-        self.assertEqual(settings.config_path, Path("/tmp/agentz-config"))
+        self.assertEqual(settings.agentz_home, Path("/tmp/agentz-home"))
 
     def test_load_settings_accepts_compaction_overrides(self):
         settings = load_settings(
