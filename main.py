@@ -7,6 +7,7 @@
 import argparse
 import asyncio
 import os
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -48,8 +49,24 @@ def _load_agentz_env(agentz_home_override: str | None) -> Path:
     return agentz_home
 
 
+def _configure_frozen_runtime() -> None:
+    """Apply PyInstaller-only compatibility settings before importing Pydantic AI."""
+    if getattr(sys, "frozen", False):
+        bundle_dir = getattr(sys, "_MEIPASS", None)
+        if bundle_dir is not None and str(bundle_dir) not in sys.path:
+            # PyInstaller stores copied ``*.dist-info`` metadata under this
+            # directory. Add it to the metadata search path before Pydantic AI
+            # imports genai-prices and asks importlib.metadata for its version.
+            sys.path.append(str(bundle_dir))
+        # Logfire's generic Pydantic plugin reads Python source with inspect,
+        # which is unavailable for modules inside PyInstaller's archive. AgentZ
+        # continues to enable its explicit Pydantic AI instrumentation later.
+        os.environ.setdefault("PYDANTIC_DISABLE_PLUGINS", "logfire-plugin")
+
+
 def main():
     """主函数：处理用户输入并返回带感叹号的内容"""
+    _configure_frozen_runtime()
     from core.server import server_run_stream
 
     args = _parse_args()

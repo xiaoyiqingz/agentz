@@ -19,3 +19,8 @@ dependencies = [
 service_name="mcp-server"
 console = false
 send_to_logfire = true
+
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.21.0",
+]

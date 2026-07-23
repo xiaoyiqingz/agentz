@@ -118,3 +118,31 @@ At runtime the skills toolset exposes:
 - `run_skill_script`
 
 The project wires this through `pydantic-ai-skills` `SkillsToolset`. The directory comes from `SKILLS_DIR`; when omitted, it defaults to `$AGENTZ_HOME/skills`.
+
+## Build executable
+
+Install development dependencies with `uv sync --group dev`, then use the Makefile:
+
+```bash
+make run             # uv run main.py --agentz-home .agentz
+make build-onedir    # dist/onedir/agentz/
+make build-onefile   # dist/onefile/agentz
+```
+
+The executable reads `.env`, optional `mcp.json`, optional `skills/`, and
+session data from AgentZ Home at runtime. Do not package those user-owned files
+into the build output.
+
+Frozen builds disable Logfire's generic Pydantic plugin before importing
+Pydantic AI, because that plugin requires Python source unavailable inside a
+PyInstaller archive. AgentZ's explicit Pydantic AI tracing remains enabled.
+The frozen entry point also adds PyInstaller's bundle directory to the metadata
+search path for Pydantic AI's runtime package-version lookup.
+For local macOS testing, leave `CODESIGN_IDENTITY` unset and let PyInstaller
+use its default ad-hoc signing. For distribution, provide one real `Developer
+ID Application` identity so all embedded binaries share the same Team ID, for
+example:
+
+```bash
+make build-onedir CODESIGN_IDENTITY="Developer ID Application: Your Name"
+```
