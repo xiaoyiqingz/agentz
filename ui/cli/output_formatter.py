@@ -217,12 +217,15 @@ class UnifiedFormatter:
     - Markdown 流式输出
     """
 
-    def __init__(self, use_live: bool = True):
+    def __init__(self, use_live: bool = True, show_stream: bool = False):
         """
         初始化统一格式化器
 
         Args:
             use_live: 是否使用 Live 实时渲染 Markdown（默认 True）
+            show_stream: 非 Live 模式下是否直接输出原始流式文本。
+                False 时会在回答完成后一次性以 Rich Markdown 渲染，
+                适合表格、代码块等结构化内容。
         """
         self.console = Console()
         # 内部包含 Markdown 流式格式化器
@@ -231,8 +234,11 @@ class UnifiedFormatter:
                 LiveMarkdownFormatter, SimpleMarkdownFormatter
             ] = LiveMarkdownFormatter()
         else:
-            # 非 Live 模式下直接流式输出原文，结束时不重复重放全文。
-            self.markdown_formatter = SimpleMarkdownFormatter(show_stream=True)
+            # 默认在回答结束后统一渲染，避免 Markdown 表格在分块到达时
+            # 被拆散。需要低延迟原文输出时仍可显式开启 show_stream。
+            self.markdown_formatter = SimpleMarkdownFormatter(
+                show_stream=show_stream
+            )
 
     @staticmethod
     def _to_plain_text(content: object) -> str:
@@ -377,6 +383,7 @@ class UnifiedFormatter:
 
 def create_formatter(
     use_live: bool = True,
+    show_stream: bool = False,
 ) -> UnifiedFormatter:
     """
     创建统一的格式化器实例
@@ -384,9 +391,11 @@ def create_formatter(
     Args:
         use_live: 是否使用 Live 实时渲染（默认 True）
                  - True: 使用 LiveMarkdownFormatter，流式输出时实时渲染 Markdown（推荐）
-                 - False: 使用 SimpleMarkdownFormatter，流式输出原始文本，结束时仅收尾不重复整段输出
+                 - False: 使用 SimpleMarkdownFormatter，在回答结束后渲染 Markdown
+        show_stream: 仅在 ``use_live=False`` 时生效。True 表示保留原始
+            流式文本输出；False 表示等待本轮完成后一次性渲染，默认值为 False。
 
     Returns:
         UnifiedFormatter 实例，提供统一的输出美化接口
     """
-    return UnifiedFormatter(use_live=use_live)
+    return UnifiedFormatter(use_live=use_live, show_stream=show_stream)

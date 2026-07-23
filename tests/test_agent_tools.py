@@ -1,8 +1,13 @@
 import unittest
+from pathlib import Path
 
-from prompts.prompt import get_smart_assistant_prompt
-from core.server import create_agent
+from pydantic_ai_harness.compaction import TieredCompaction
+from pydantic_ai_harness.planning import Planning
+
 from config.settings import load_settings
+from core.readonly_filesystem import READ_ONLY_FILESYSTEM_TOOLS
+from core.server import create_agent
+from prompts.prompt import get_smart_assistant_prompt
 from tools.tools_registry import (
     get_all_tools,
     get_hidden_tool_result_names,
@@ -20,7 +25,7 @@ class TestAgentTools(unittest.TestCase):
         )
 
     def test_legacy_code_editing_tools_are_not_registered_by_default(self):
-        agent = create_agent(self.settings)
+        agent = create_agent(self.settings, Path.cwd())
         tool_names = set(agent._function_toolset.tools.keys())
 
         self.assertNotIn("read_code_file", tool_names)
@@ -28,16 +33,34 @@ class TestAgentTools(unittest.TestCase):
         self.assertNotIn("check_and_modify_code", tool_names)
         self.assertNotIn("generate_code", tool_names)
 
-    def test_review_tools_remain_registered(self):
-        agent = create_agent(self.settings)
+    def test_git_readonly_replaces_the_old_project_review_tools(self):
+        agent = create_agent(self.settings, Path.cwd())
         tool_names = set(agent._function_toolset.tools.keys())
 
-        self.assertIn("read_project_file", tool_names)
-        self.assertIn("git_status_summary", tool_names)
-        self.assertIn("git_diff_summary", tool_names)
-        self.assertIn("git_diff_file", tool_names)
-        self.assertIn("search_repo", tool_names)
-        self.assertIn("exec_review_command", tool_names)
+        self.assertIn("git_readonly", tool_names)
+        self.assertNotIn("read_project_file", tool_names)
+        self.assertNotIn("search_repo", tool_names)
+        self.assertNotIn("exec_review_command", tool_names)
+
+    def test_agent_registers_harness_compaction(self):
+        agent = create_agent(self.settings, Path.cwd())
+
+        self.assertTrue(
+            any(
+                isinstance(capability, TieredCompaction)
+                for capability in agent.root_capability.capabilities
+            )
+        )
+
+    def test_agent_registers_harness_planning_by_default(self):
+        agent = create_agent(self.settings, Path.cwd())
+
+        self.assertTrue(
+            any(
+                isinstance(capability, Planning)
+                for capability in agent.root_capability.capabilities
+            )
+        )
 
     def test_review_tools_are_registered_via_tools_registry(self):
         tools = get_all_tools(self.settings)
@@ -45,19 +68,21 @@ class TestAgentTools(unittest.TestCase):
             getattr(tool, "name", getattr(tool, "__name__", None)) for tool in tools
         }
 
-        self.assertIn("read_project_file", tool_names)
-        self.assertIn("git_status_summary", tool_names)
-        self.assertIn("git_diff_summary", tool_names)
-        self.assertIn("git_diff_file", tool_names)
-        self.assertIn("search_repo", tool_names)
-        self.assertIn("exec_review_command", tool_names)
+        self.assertIn("git_readonly", tool_names)
 
     def test_tool_status_labels_are_provided_by_tools_registry(self):
         labels = get_tool_status_labels()
 
-        self.assertEqual(labels["read_project_file"], "正在读取项目文件")
-        self.assertEqual(labels["git_status_summary"], "正在检查项目变更摘要")
-        self.assertEqual(labels["exec_review_command"], "正在执行只读 review 命令")
+        self.assertEqual(labels["read_file"], "正在读取项目文件")
+        self.assertEqual(labels["search_files"], "正在搜索项目代码")
+        self.assertEqual(labels["git_readonly"], "正在检查 Git 仓库")
+        self.assertEqual(labels["write_plan"], "正在更新执行计划")
+
+    def test_readonly_filesystem_exposes_no_write_tools(self):
+        self.assertEqual(
+            READ_ONLY_FILESYSTEM_TOOLS,
+            {"read_file", "list_directory", "search_files", "find_files", "file_info"},
+        )
 
     def test_hidden_tool_result_names_are_provided_by_tools_registry(self):
         hidden_names = get_hidden_tool_result_names()
@@ -74,7 +99,3 @@ class TestAgentTools(unittest.TestCase):
         self.assertNotIn("`apply_code_patch`", prompt)
         self.assertNotIn("`check_and_modify_code`", prompt)
         self.assertNotIn("`generate_code`", prompt)
-
-
-if __name__ == "__main__":
-    unittest.main()

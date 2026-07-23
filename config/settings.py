@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 
 @dataclass(frozen=True)
@@ -40,19 +41,23 @@ class Settings:
     models: ModelSettings
     observability: ObservabilitySettings
     tavily_api_key: str | None
-    config_path: Path
+    agentz_home: Path
     mcp_config_path: Path
     skills_dir: Path
-    context_keep_recent_turns: int
-    context_enable_summary: bool
-    context_summary_trigger_turns: int
-    context_summary_max_turns: int
+    context_target_tokens: int
+    context_keep_messages: int
+    context_keep_tool_pairs: int
+    context_max_part_tokens: int
+    planning_enabled: bool
+    planning_cache_ttl: Literal["5m", "1h"]
 
 
 def load_settings(env: dict[str, str] | None = None) -> Settings:
     """Build project settings from process environment."""
     values = env or os.environ
     base_path = Path(__file__).resolve().parent.parent
+
+    agentz_home = _resolve_path(values.get("AGENTZ_HOME", "~/.agentz"), base_path)
 
     return Settings(
         models=ModelSettings(
@@ -90,34 +95,22 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
             langfuse_secret_key=values.get("LANGFUSE_SECRET_KEY"),
         ),
         tavily_api_key=values.get("TAVILY_API_KEY"),
-        config_path=_resolve_path(values.get("CONFIG_PATH", "~"), base_path),
-        mcp_config_path=_resolve_path(
-            values.get("MCP_CONFIG_PATH", "./mcp.json"), base_path
+        agentz_home=agentz_home,
+        mcp_config_path=_resolve_path(values["MCP_CONFIG_PATH"], base_path)
+        if values.get("MCP_CONFIG_PATH")
+        else agentz_home / "mcp.json",
+        skills_dir=_resolve_path(values["SKILLS_DIR"], base_path)
+        if values.get("SKILLS_DIR")
+        else agentz_home / "skills",
+        context_target_tokens=int(values.get("CONTEXT_TARGET_TOKENS", "48000")),
+        context_keep_messages=int(values.get("CONTEXT_KEEP_MESSAGES", "20")),
+        context_keep_tool_pairs=int(values.get("CONTEXT_KEEP_TOOL_PAIRS", "4")),
+        context_max_part_tokens=int(
+            values.get("CONTEXT_MAX_PART_TOKENS", "30000")
         ),
-        skills_dir=_resolve_path(
-            values.get("SKILLS_DIR", ".agents/skills"), base_path
-        ),
-        context_keep_recent_turns=int(
-            values.get(
-                "CONTEXT_KEEP_RECENT_TURNS",
-                values.get("CONTEXT_KEEP_RECENT_MESSAGES", "12"),
-            )
-        ),
-        context_enable_summary=values.get(
-            "CONTEXT_ENABLE_SUMMARY", "true"
-        ).lower() not in {"0", "false", "no", "off"},
-        context_summary_trigger_turns=int(
-            values.get(
-                "CONTEXT_SUMMARY_TRIGGER_TURNS",
-                values.get("CONTEXT_SUMMARY_TRIGGER_MESSAGES", "30"),
-            )
-        ),
-        context_summary_max_turns=int(
-            values.get(
-                "CONTEXT_SUMMARY_MAX_TURNS",
-                values.get("CONTEXT_SUMMARY_MAX_MESSAGES", "24"),
-            )
-        ),
+        planning_enabled=values.get("USE_PLANNING_MODE", "true").lower()
+        not in {"0", "false", "no", "off"},
+        planning_cache_ttl=_load_planning_cache_ttl(values),
     )
 
 
@@ -126,3 +119,10 @@ def _resolve_path(raw_path: str, base_path: Path) -> Path:
     if candidate.is_absolute():
         return candidate
     return (base_path / candidate).resolve()
+
+
+def _load_planning_cache_ttl(values: dict[str, str]) -> Literal["5m", "1h"]:
+    value = values.get("PLANNING_CACHE_TTL", "5m")
+    if value not in {"5m", "1h"}:
+        raise ValueError("PLANNING_CACHE_TTL 必须为 '5m' 或 '1h'")
+    return value  # type: ignore[return-value]

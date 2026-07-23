@@ -44,21 +44,24 @@ scripts/run_tests.py    # test runner helper
 Session data is stored under:
 
 ```text
-${CONFIG_PATH:-~}/.agentz/sessions/<session_id>/
+${AGENTZ_HOME:-~/.agentz}/sessions/<session_id>/
 ```
 
-By default `CONFIG_PATH` resolves to the current user's home directory. You can override it in `.env`:
+By default `AGENTZ_HOME` resolves to `~/.agentz`. Select a different home with
+`--agentz-home` or the process environment variable `AGENTZ_HOME` before
+startup; it cannot be configured from the `.env` that lives inside the home.
 
-```bash
-CONFIG_PATH=~
-```
+The application loads its runtime environment from `$AGENTZ_HOME/.env`. When
+`SKILLS_DIR` and `MCP_CONFIG_PATH` are omitted, it uses
+`$AGENTZ_HOME/skills` and `$AGENTZ_HOME/mcp.json` respectively. Use
+`--agentz-home` or the process environment variable `AGENTZ_HOME` to select a
+different home before startup.
 
 The bound project directory is stored in the current session metadata. If `--project-path` is omitted, the CLI defaults to the current working directory. When resuming with `--resume`, the stored project directory is restored and takes precedence over any new `--project-path` value.
 
 ## MCP config
 
-The app now supports loading MCP servers from a project-level `mcp.json`.
-By default it reads `./mcp.json` from the current project directory.
+The app loads MCP servers from `AGENTZ_HOME/mcp.json` by default.
 You can override the location in `.env`:
 
 ```bash
@@ -93,13 +96,13 @@ Example `mcp.json`:
 The app uses the third-party `pydantic-ai-skills` package to load agent skills from a standard directory layout:
 
 ```bash
-SKILLS_DIR=.agents/skills
+SKILLS_DIR=/custom/path/to/skills
 ```
 
 Each skill should be stored as:
 
 ```text
-.agents/skills/
+$AGENTZ_HOME/skills/
   <skill_name>/
     SKILL.md
     REFERENCE.md        # optional
@@ -114,4 +117,32 @@ At runtime the skills toolset exposes:
 - `read_skill_resource`
 - `run_skill_script`
 
-The project wires this through `pydantic-ai-skills` `SkillsToolset`, with the skills directory coming from `SKILLS_DIR` and defaulting to `.agents/skills` under the current project.
+The project wires this through `pydantic-ai-skills` `SkillsToolset`. The directory comes from `SKILLS_DIR`; when omitted, it defaults to `$AGENTZ_HOME/skills`.
+
+## Build executable
+
+Install development dependencies with `uv sync --group dev`, then use the Makefile:
+
+```bash
+make run             # uv run main.py --agentz-home .agentz
+make build-onedir    # dist/onedir/agentz/
+make build-onefile   # dist/onefile/agentz
+```
+
+The executable reads `.env`, optional `mcp.json`, optional `skills/`, and
+session data from AgentZ Home at runtime. Do not package those user-owned files
+into the build output.
+
+Frozen builds disable Logfire's generic Pydantic plugin before importing
+Pydantic AI, because that plugin requires Python source unavailable inside a
+PyInstaller archive. AgentZ's explicit Pydantic AI tracing remains enabled.
+The frozen entry point also adds PyInstaller's bundle directory to the metadata
+search path for Pydantic AI's runtime package-version lookup.
+For local macOS testing, leave `CODESIGN_IDENTITY` unset and let PyInstaller
+use its default ad-hoc signing. For distribution, provide one real `Developer
+ID Application` identity so all embedded binaries share the same Team ID, for
+example:
+
+```bash
+make build-onedir CODESIGN_IDENTITY="Developer ID Application: Your Name"
+```

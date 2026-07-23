@@ -1,6 +1,8 @@
 import unittest
 from unittest.mock import Mock
 
+from rich.markdown import Markdown
+
 from ui.cli.output_formatter import SimpleMarkdownFormatter, create_formatter
 
 
@@ -26,10 +28,23 @@ class TestOutputFormatter(unittest.TestCase):
         formatter.console.print.assert_any_call("hello", end="", markup=False)
         formatter.console.print.assert_any_call()
 
-    def test_create_formatter_non_live_streams_text(self):
+    def test_create_formatter_non_live_renders_markdown_on_completion(self):
         formatter = create_formatter(use_live=False)
 
         self.assertIsInstance(formatter.markdown_formatter, SimpleMarkdownFormatter)
+        self.assertFalse(formatter.markdown_formatter.show_stream)
+
+        formatter.markdown_formatter.console = Mock()
+        formatter.add_chunk("| Name | Value |\n| --- | --- |\n| AgentZ | Rich |")
+        formatter.render_final()
+
+        formatter.markdown_formatter.console.print.assert_called_once()
+        rendered = formatter.markdown_formatter.console.print.call_args.args[0]
+        self.assertIsInstance(rendered, Markdown)
+
+    def test_create_formatter_can_keep_plain_streaming_output(self):
+        formatter = create_formatter(use_live=False, show_stream=True)
+
         self.assertTrue(formatter.markdown_formatter.show_stream)
 
 

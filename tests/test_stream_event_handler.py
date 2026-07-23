@@ -25,7 +25,7 @@ class TestStreamEventHandler(unittest.TestCase):
             yield PartStartEvent(index=0, part=TextPart(content="hello"))
             yield PartDeltaEvent(index=0, delta=TextPartDelta(content_delta=" world"))
             yield FunctionToolCallEvent(
-                part=ToolCallPart(tool_name="search_repo", args={"pattern": "x"})
+                part=ToolCallPart(tool_name="search_files", args={"pattern": "x"})
             )
             yield AgentRunResultEvent(result=run_result)
 
@@ -33,7 +33,7 @@ class TestStreamEventHandler(unittest.TestCase):
             consume_stream_events(
                 stream(),
                 formatter=formatter,
-                tool_status_labels={"search_repo": "正在搜索项目代码"},
+                tool_status_labels={"search_files": "正在搜索项目代码"},
             )
         )
 
