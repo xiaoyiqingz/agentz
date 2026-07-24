@@ -6,12 +6,15 @@ from typing import Any
 from pydantic_ai.messages import (
     FunctionToolCallEvent,
     FunctionToolResultEvent,
+    ModelRequest,
+    ModelResponse,
     PartDeltaEvent,
     PartStartEvent,
     TextPart,
     TextPartDelta,
     ThinkingPart,
     ThinkingPartDelta,
+    UserPromptPart,
 )
 from pydantic_ai.run import AgentRunResultEvent
 
@@ -20,6 +23,39 @@ from pydantic_ai.run import AgentRunResultEvent
 class StreamConsumptionResult:
     final_response_text: str
     run_result: Any | None
+
+
+def render_message_history(messages: list[Any], formatter: Any) -> int:
+    """Render visible user and assistant text with the normal CLI formatter.
+
+    Tool calls, tool results, thinking, and system instructions remain internal
+    implementation details and are intentionally omitted from the replay.
+    """
+    rendered_turns = 0
+
+    for message in messages:
+        if isinstance(message, ModelRequest):
+            for part in message.parts:
+                if isinstance(part, UserPromptPart):
+                    formatter.print_user_input(part.content)
+                    formatter.print_blank_line()
+        elif isinstance(message, ModelResponse):
+            text = "".join(
+                part.content
+                for part in message.parts
+                if isinstance(part, TextPart)
+            )
+            if not text:
+                continue
+
+            formatter.print_rule()
+            formatter.add_chunk(text)
+            formatter.render_final()
+            formatter.reset()
+            formatter.print_blank_line()
+            rendered_turns += 1
+
+    return rendered_turns
 
 
 async def consume_stream_events(

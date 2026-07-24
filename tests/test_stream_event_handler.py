@@ -5,15 +5,18 @@ from unittest.mock import Mock
 
 from pydantic_ai.messages import (
     FunctionToolCallEvent,
+    ModelRequest,
+    ModelResponse,
     PartDeltaEvent,
     PartStartEvent,
     TextPart,
     TextPartDelta,
     ToolCallPart,
+    UserPromptPart,
 )
 from pydantic_ai.run import AgentRunResultEvent
 
-from core.stream_event_handler import consume_stream_events
+from core.stream_event_handler import consume_stream_events, render_message_history
 
 
 class TestStreamEventHandler(unittest.TestCase):
@@ -61,6 +64,24 @@ class TestStreamEventHandler(unittest.TestCase):
         )
 
         formatter.print_status.assert_called_once_with("正在调用工具：unknown_tool")
+
+    def test_render_message_history_uses_the_normal_user_and_markdown_output(self):
+        formatter = Mock()
+        messages = [
+            ModelRequest(parts=[UserPromptPart(content="历史问题")]),
+            ModelResponse(parts=[TextPart(content="历史回答")]),
+            ModelResponse(
+                parts=[ToolCallPart(tool_name="search_files", args={})]
+            ),
+        ]
+
+        rendered_turns = render_message_history(messages, formatter)
+
+        self.assertEqual(rendered_turns, 1)
+        formatter.print_user_input.assert_called_once_with("历史问题")
+        formatter.add_chunk.assert_called_once_with("历史回答")
+        formatter.render_final.assert_called_once_with()
+        formatter.reset.assert_called_once_with()
 
 
 if __name__ == "__main__":

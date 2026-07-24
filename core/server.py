@@ -19,7 +19,7 @@ from .context.deps import Deps
 from .context.compaction import build_compaction
 from .context.session_runtime import initialize_session_runtime
 from .readonly_filesystem import build_readonly_filesystem
-from .stream_event_handler import consume_stream_events
+from .stream_event_handler import consume_stream_events, render_message_history
 
 
 def create_agent(settings: Settings, project_path: Path) -> Agent:
@@ -74,6 +74,12 @@ async def server_run_stream(
     # 因此默认关闭 Live；回答完成后再统一渲染 Markdown，表格和代码块
     # 仍能获得稳定的终端展示效果。
     formatter = create_formatter(use_live=False)
+
+    if all_messages:
+        formatter.print_status("正在恢复历史对话...")
+        rendered_turns = render_message_history(all_messages, formatter)
+        print(f"已展示 {rendered_turns} 条历史助手回复。")
+        formatter.print_blank_line()
 
     async with AsyncClient() as client:
         instrument_http_client(client, settings)
@@ -178,7 +184,7 @@ async def server_run(settings: Settings):
     project_path = session_runtime.project_path
     agent = create_agent(settings, project_path)
     async with AsyncClient() as client:
-        instrument_http_client(client)
+        instrument_http_client(client, settings)
         deps = Deps(
             client=client,
             session_id=session_id,
