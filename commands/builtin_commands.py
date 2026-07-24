@@ -2,12 +2,30 @@
 内置命令处理模块
 
 提供常用的内置命令处理功能，分为两种类型：
-1. 直接处理型：如 exit, help - 直接执行并等待用户继续输入
-2. 转换型：如 time, date - 将命令转换为用户输入传给 agent
+1. 直接处理型：如 /exit、/help - 直接执行并等待用户继续输入
+2. 转换型：如 /time、/date - 将命令转换为用户输入传给 agent
 """
 
 from typing import Optional, Tuple
 from enum import Enum
+
+
+SLASH_COMMAND_DESCRIPTIONS = {
+    "/help": "显示命令帮助",
+    "/exit": "退出程序",
+    "/quit": "退出程序",
+    "/q": "退出程序",
+    "/version": "显示版本信息",
+    "/clear": "清屏",
+    "/time": "查询当前时间",
+    "/date": "查询当前日期",
+    "/weather": "查询天气和穿衣建议",
+}
+
+
+def get_slash_command_descriptions() -> dict[str, str]:
+    """Return CLI slash commands and their completion descriptions."""
+    return dict(SLASH_COMMAND_DESCRIPTIONS)
 
 
 class CommandType(Enum):
@@ -38,24 +56,24 @@ def process_builtin_command(
 
     # 直接处理型命令（执行后等待用户继续输入）
     direct_commands = {
-        "exit": _handle_exit,
-        "quit": _handle_exit,
-        "q": _handle_exit,
-        "help": _handle_help,
-        "version": _handle_version,
-        "clear": _handle_clear,
+        "/exit": _handle_exit,
+        "/quit": _handle_exit,
+        "/q": _handle_exit,
+        "/help": _handle_help,
+        "/version": _handle_version,
+        "/clear": _handle_clear,
     }
 
     # 转换型命令（转换为用户输入传给 agent）
     convert_commands = {
-        "time": _convert_time,
-        "date": _convert_date,
-        "weather": _convert_weather,
+        "/time": _convert_time,
+        "/date": _convert_date,
+        "/weather": _convert_weather,
     }
 
     # 检查直接处理型命令
     if command in direct_commands:
-        if command in {"exit", "quit", "q"}:
+        if command in {"/exit", "/quit", "/q"}:
             is_processed, result = _handle_exit(session_id)
         else:
             is_processed, result = direct_commands[command]()
@@ -105,15 +123,15 @@ def _handle_help() -> Tuple[bool, str]:
 可用命令:
 
 直接处理型命令（执行后等待用户继续输入）:
-  exit/quit/q  - 退出程序
-  help         - 显示此帮助信息
-  version      - 显示版本信息
-  clear        - 清屏
+  /exit /quit /q  - 退出程序
+  /help            - 显示此帮助信息
+  /version         - 显示版本信息
+  /clear           - 清屏
 
 转换型命令（转换为用户输入传给 AI）:
-  time         - 查询当前时间并获取相关信息
-  date         - 查询当前日期并获取历史信息
-  weather      - 查询天气并获取穿衣建议
+  /time            - 查询当前时间并获取相关信息
+  /date            - 查询当前日期并获取历史信息
+  /weather         - 查询天气并获取穿衣建议
     """
     return True, help_text.strip()
 
@@ -144,16 +162,16 @@ def is_builtin_command(user_input: str) -> bool:
     command = user_input.strip().lower()
     builtin_commands = {
         # 直接处理型命令
-        "exit",
-        "quit",
-        "q",
-        "help",
-        "version",
-        "clear",
+        "/exit",
+        "/quit",
+        "/q",
+        "/help",
+        "/version",
+        "/clear",
         # 转换型命令
-        "time",
-        "date",
-        "weather",
+        "/time",
+        "/date",
+        "/weather",
     }
     return command in builtin_commands
 
@@ -170,8 +188,8 @@ def get_command_type(user_input: str) -> CommandType:
     """
     command = user_input.strip().lower()
 
-    direct_commands = {"exit", "quit", "q", "help", "version", "clear"}
-    convert_commands = {"time", "date", "weather"}
+    direct_commands = {"/exit", "/quit", "/q", "/help", "/version", "/clear"}
+    convert_commands = {"/time", "/date", "/weather"}
 
     if command in direct_commands:
         return CommandType.DIRECT

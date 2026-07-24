@@ -102,8 +102,8 @@ async def server_run_stream(
                             # 直接处理型命令：显示结果并等待用户继续输入
                             if result is not None:
                                 print(result)
-                            # 检查是否是退出命令（exit/quit/q）
-                            if user_input.strip().lower() in ("exit", "quit", "q"):
+                            # 检查是否是退出命令（/exit、/quit、/q）
+                            if user_input.strip().lower() in ("/exit", "/quit", "/q"):
                                 # 退出前保存历史记录
                                 session_store.save_message_history(all_messages)
                                 input_handler.save_history()

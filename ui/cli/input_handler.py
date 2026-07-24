@@ -14,11 +14,36 @@ from typing import Optional
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
+from prompt_toolkit.completion import Completer, Completion
+from prompt_toolkit.document import Document
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.history import FileHistory
 
+from commands.builtin_commands import get_slash_command_descriptions
+
 
 PROMPT_HTML = HTML("<ansibrightcyan>&gt;</ansibrightcyan> ")
+
+
+class SlashCommandCompleter(Completer):
+    """Suggest built-in commands only when the current input starts with ``/``."""
+
+    def __init__(self, commands: dict[str, str] | None = None):
+        self.commands = commands or get_slash_command_descriptions()
+
+    def get_completions(self, document: Document, complete_event):
+        text = document.text_before_cursor
+        if not text.startswith("/") or any(character.isspace() for character in text):
+            return
+
+        for command, description in self.commands.items():
+            if command.startswith(text):
+                yield Completion(
+                    command,
+                    start_position=-len(text),
+                    display=command,
+                    display_meta=description,
+                )
 
 
 def _import_readline() -> Optional[object]:
@@ -91,8 +116,9 @@ class InputHandler:
             self.prompt_session = PromptSession(
                 history=FileHistory(str(self.history_file)),
                 auto_suggest=AutoSuggestFromHistory(),
-                complete_while_typing=False,
-                reserve_space_for_menu=0,
+                completer=SlashCommandCompleter(),
+                complete_while_typing=True,
+                reserve_space_for_menu=8,
             )
             self._initialized = True
             return
