@@ -1,3 +1,5 @@
+"""Read-only local Git inspection tools."""
+
 from __future__ import annotations
 
 import os
@@ -6,7 +8,8 @@ import subprocess
 from pathlib import Path
 from typing import Literal
 
-from pydantic_ai import RunContext
+from pydantic_ai import FunctionToolset, RunContext
+from pydantic_ai.tools import Tool
 
 from core.context.deps import Deps
 
@@ -51,7 +54,6 @@ def git_readonly(
         _validate_ref(base_ref)
     if not 1 <= max_entries <= 200:
         raise ValueError("max_entries 必须在 1 到 200 之间")
-
     argv = ["git", "--no-pager"]
     if operation == "status":
         argv.extend(["status", "--short", "--branch"])
@@ -65,10 +67,7 @@ def git_readonly(
             argv.extend(["--", _relative_path(project_path, path)])
     elif operation == "log":
         argv.extend(["log", "--oneline", f"--max-count={max_entries}"])
-        if base_ref is not None:
-            argv.append(f"{base_ref}..{target_ref}")
-        else:
-            argv.append(target_ref)
+        argv.append(f"{base_ref}..{target_ref}" if base_ref else target_ref)
     elif operation == "show":
         argv.extend(["show", "--no-ext-diff", "--no-textconv", target_ref])
         if stat:
@@ -76,9 +75,14 @@ def git_readonly(
     elif operation == "blame":
         if path is None:
             raise ValueError("git blame 必须提供 path")
-        argv.extend(["blame"])
+        argv.append("blame")
         if start_line is not None or end_line is not None:
-            if start_line is None or end_line is None or start_line < 1 or end_line < start_line:
+            if (
+                start_line is None
+                or end_line is None
+                or start_line < 1
+                or end_line < start_line
+            ):
                 raise ValueError("blame 的行范围无效")
             argv.extend(["-L", f"{start_line},{end_line}"])
         argv.extend([target_ref, "--", _relative_path(project_path, path)])
@@ -92,9 +96,8 @@ def git_readonly(
         if base_ref is None:
             raise ValueError("git merge_base 必须提供 base_ref")
         argv.extend(["merge-base", base_ref, target_ref])
-    else:  # pragma: no cover - Literal is enforced by Pydantic AI tool validation.
+    else:  # pragma: no cover
         raise ValueError(f"不支持的 Git 操作: {operation}")
-
     return _run_git(argv, project_path)
 
 
@@ -151,10 +154,17 @@ def _run_git(argv: list[str], cwd: Path) -> str:
         timeout=DEFAULT_TIMEOUT_SECONDS,
         check=False,
     )
-    output = completed.stdout if completed.returncode == 0 else completed.stderr
-    output = output.strip()
+    output = (completed.stdout if completed.returncode == 0 else completed.stderr).strip()
     if not output:
         return "(无输出)"
     if len(output) > MAX_OUTPUT_CHARS:
         return f"{output[:MAX_OUTPUT_CHARS]}\n\n[输出已截断]"
     return output
+
+
+def build_project_review_toolset() -> FunctionToolset:
+    """Build bounded, read-only Git inspection tools."""
+    return FunctionToolset(
+        tools=[Tool(git_readonly_tool, name="git_readonly")],
+        instructions="Use git_readonly to inspect Git state and history; it never changes the repository.",
+    )

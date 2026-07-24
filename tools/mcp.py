@@ -1,8 +1,4 @@
-"""
-MCP toolset 通用加载入口。
-
-通过项目级 `mcp.json` 配置文件加载 MCP servers。
-"""
+"""MCP toolset loading and registration."""
 
 from __future__ import annotations
 
@@ -15,18 +11,12 @@ from config.settings import Settings
 
 
 def get_mcp_config_path(settings: Settings) -> Path:
-    """
-    获取 MCP 配置文件路径。
-    """
+    """Return the configured project MCP configuration path."""
     return settings.mcp_config_path
 
 
 def get_configured_mcp_toolsets(settings: Settings) -> list[Any]:
-    """
-    从 JSON 配置文件中加载 MCP toolsets。
-
-    配置文件缺失时返回空列表。
-    """
+    """Load MCP toolsets from the optional JSON configuration file."""
     config_path = get_mcp_config_path(settings)
     if not config_path.exists():
         return []
@@ -34,16 +24,13 @@ def get_configured_mcp_toolsets(settings: Settings) -> list[Any]:
     try:
         return load_mcp_toolsets(config_path)
     except ValueError as exc:
-        # Pydantic AI v2 resolves ${VAR} placeholders while loading. Keep MCP
-        # optional when a project ships a template mcp.json without its runtime
-        # credentials/command configured yet.
+        # Pydantic AI resolves ${VAR} placeholders while loading. A template
+        # configuration without its runtime credentials must remain optional.
         if "Environment variable" in str(exc):
             return []
         raise
 
 
-def get_all_mcp_toolsets(settings: Settings) -> list[Any]:
-    """
-    获取所有通过配置文件启用的 MCP toolsets。
-    """
+def build_mcp_toolsets(settings: Settings) -> list[Any]:
+    """Build toolsets from the optional project MCP configuration."""
     return get_configured_mcp_toolsets(settings)

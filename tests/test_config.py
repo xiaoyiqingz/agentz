@@ -13,7 +13,7 @@ class TestConfig(unittest.TestCase):
             }
         )
 
-        self.assertEqual(settings.observability.backend, "logfire")
+        self.assertIsNone(settings.observability.backend)
         self.assertEqual(
             settings.observability.langfuse_base_url,
             "https://cloud.langfuse.com",

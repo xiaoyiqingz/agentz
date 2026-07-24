@@ -30,7 +30,7 @@ class ModelSettings:
 
 @dataclass(frozen=True)
 class ObservabilitySettings:
-    backend: str
+    backend: str | None
     langfuse_base_url: str
     langfuse_public_key: str | None
     langfuse_secret_key: str | None
@@ -87,7 +87,7 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
             ),
         ),
         observability=ObservabilitySettings(
-            backend=values.get("OBS_BACKEND", "logfire"),
+                backend=values.get("OBS_BACKEND"),
             langfuse_base_url=values.get(
                 "LANGFUSE_BASE_URL", "https://cloud.langfuse.com"
             ),

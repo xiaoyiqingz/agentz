@@ -7,6 +7,7 @@ from infra.observability import (
     _build_langfuse_auth_header,
     _build_langfuse_otlp_endpoint,
     configure_observability,
+    instrument_http_client,
 )
 
 
@@ -103,4 +104,28 @@ class TestObservability(unittest.TestCase):
         )
 
         with self.assertRaisesRegex(ValueError, "LANGFUSE_PUBLIC_KEY"):
+            configure_observability(settings)
+
+    @patch("infra.observability.logfire.instrument_httpx")
+    @patch("infra.observability.logfire.instrument_pydantic_ai")
+    @patch("infra.observability.logfire.configure")
+    def test_no_backend_disables_configuration_and_http_instrumentation(
+        self,
+        configure_mock,
+        pydantic_ai_mock,
+        httpx_mock,
+    ):
+        settings = load_settings({})
+
+        configure_observability(settings)
+        instrument_http_client(object(), settings)
+
+        configure_mock.assert_not_called()
+        pydantic_ai_mock.assert_not_called()
+        httpx_mock.assert_not_called()
+
+    def test_configure_observability_rejects_unknown_backend(self):
+        settings = load_settings({"OBS_BACKEND": "unsupported"})
+
+        with self.assertRaisesRegex(ValueError, "Unsupported OBS_BACKEND"):
             configure_observability(settings)

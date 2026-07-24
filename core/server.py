@@ -11,11 +11,7 @@ from infra.observability import configure_observability, instrument_http_client
 from models.mimo import build_mimo_model
 from models.deepseek import build_deepseek_model
 from prompts.prompt import get_smart_assistant_prompt
-from tools.tools_registry import (
-    get_all_tools,
-    get_all_toolsets,
-    get_tool_status_labels,
-)
+from tools.register import build_agent_tools, get_tool_status_labels
 from ui.cli.input_handler import InputHandler
 from ui.cli.output_formatter import create_formatter
 
@@ -27,8 +23,7 @@ from .stream_event_handler import consume_stream_events
 
 
 def create_agent(settings: Settings, project_path: Path) -> Agent:
-    tools_list = get_all_tools(settings)
-    toolsets_list = get_all_toolsets(settings)
+    registered_tools = build_agent_tools(settings)
 
     capabilities = [
         build_compaction(settings),
@@ -43,10 +38,8 @@ def create_agent(settings: Settings, project_path: Path) -> Agent:
         "system_prompt": get_smart_assistant_prompt(),
         "capabilities": capabilities,
     }
-    if tools_list:
-        agent_kwargs["tools"] = tools_list
-    if toolsets_list:
-        agent_kwargs["toolsets"] = toolsets_list
+    if registered_tools.toolsets:
+        agent_kwargs["toolsets"] = registered_tools.toolsets
 
     return Agent(**agent_kwargs)
 
@@ -83,7 +76,7 @@ async def server_run_stream(
     formatter = create_formatter(use_live=False)
 
     async with AsyncClient() as client:
-        instrument_http_client(client)
+        instrument_http_client(client, settings)
         deps = Deps(
             client=client,
             session_id=session_id,

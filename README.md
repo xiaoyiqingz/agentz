@@ -57,6 +57,10 @@ The application loads its runtime environment from `$AGENTZ_HOME/.env`. When
 `--agentz-home` or the process environment variable `AGENTZ_HOME` to select a
 different home before startup.
 
+Telemetry is disabled unless `OBS_BACKEND` is explicitly set to `logfire` or
+`langfuse`. The Langfuse backend additionally requires `LANGFUSE_PUBLIC_KEY`
+and `LANGFUSE_SECRET_KEY`.
+
 The bound project directory is stored in the current session metadata. If `--project-path` is omitted, the CLI defaults to the current working directory. When resuming with `--resume`, the stored project directory is restored and takes precedence over any new `--project-path` value.
 
 ## MCP config

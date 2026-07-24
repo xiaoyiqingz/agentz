@@ -8,11 +8,7 @@ from config.settings import load_settings
 from core.readonly_filesystem import READ_ONLY_FILESYSTEM_TOOLS
 from core.server import create_agent
 from prompts.prompt import get_smart_assistant_prompt
-from tools.tools_registry import (
-    get_all_tools,
-    get_hidden_tool_result_names,
-    get_tool_status_labels,
-)
+from tools.register import build_agent_tools
 
 
 class TestAgentTools(unittest.TestCase):
@@ -35,7 +31,11 @@ class TestAgentTools(unittest.TestCase):
 
     def test_git_readonly_replaces_the_old_project_review_tools(self):
         agent = create_agent(self.settings, Path.cwd())
-        tool_names = set(agent._function_toolset.tools.keys())
+        tool_names = {
+            name
+            for toolset in agent.toolsets
+            for name in getattr(toolset, "tools", {})
+        }
 
         self.assertIn("git_readonly", tool_names)
         self.assertNotIn("read_project_file", tool_names)
@@ -62,16 +62,17 @@ class TestAgentTools(unittest.TestCase):
             )
         )
 
-    def test_review_tools_are_registered_via_tools_registry(self):
-        tools = get_all_tools(self.settings)
+    def test_review_tools_are_registered_via_toolset_registry(self):
+        registered = build_agent_tools(self.settings)
+        local_toolsets = registered.toolsets[:3]
         tool_names = {
-            getattr(tool, "name", getattr(tool, "__name__", None)) for tool in tools
+            name for toolset in local_toolsets for name in toolset.tools
         }
 
         self.assertIn("git_readonly", tool_names)
 
-    def test_tool_status_labels_are_provided_by_tools_registry(self):
-        labels = get_tool_status_labels()
+    def test_tool_status_labels_are_provided_by_registry(self):
+        labels = build_agent_tools(self.settings).status_labels
 
         self.assertEqual(labels["read_file"], "正在读取项目文件")
         self.assertEqual(labels["search_files"], "正在搜索项目代码")
@@ -84,8 +85,8 @@ class TestAgentTools(unittest.TestCase):
             {"read_file", "list_directory", "search_files", "find_files", "file_info"},
         )
 
-    def test_hidden_tool_result_names_are_provided_by_tools_registry(self):
-        hidden_names = get_hidden_tool_result_names()
+    def test_hidden_tool_result_names_are_provided_by_registry(self):
+        hidden_names = build_agent_tools(self.settings).hidden_result_names
 
         self.assertIn("list_skills", hidden_names)
         self.assertIn("load_skill", hidden_names)

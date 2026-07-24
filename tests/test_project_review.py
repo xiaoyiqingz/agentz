@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tools.project_review import git_readonly, resolve_repo_path
+from tools.local.project_review import git_readonly, resolve_repo_path
 
 
 class TestProjectReview(unittest.TestCase):
