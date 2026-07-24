@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from core.context.models import SessionMeta
-from utils.project_context import resolve_session_project_path
+from core.context.project_path import resolve_session_project_path
 
 
 class TestProjectContext(unittest.TestCase):

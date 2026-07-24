@@ -13,7 +13,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from config.settings import load_settings
-from utils.session import normalize_session_id
+from core.context.session_id import normalize_session_id
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:

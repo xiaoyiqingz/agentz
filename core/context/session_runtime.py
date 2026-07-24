@@ -5,7 +5,7 @@ from pathlib import Path
 
 from pydantic_ai.messages import ModelMessage
 
-from utils.project_context import resolve_session_project_path
+from core.context.project_path import resolve_session_project_path
 
 from .models import SessionMeta, utc_now
 from .session_store import SessionStore

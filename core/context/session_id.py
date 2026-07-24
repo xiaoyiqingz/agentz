@@ -4,27 +4,22 @@ import uuid
 
 
 def normalize_session_id(raw_session_id: str | None) -> tuple[str, bool]:
-    """
-    规范化 session id。
+    """Normalize a resume ID or generate a new session ID.
 
     Returns:
-        tuple[str, bool]: (session_id, resumed)
+        ``(session_id, resumed)``.
     """
     if raw_session_id:
         try:
             return str(uuid.UUID(raw_session_id)), True
-        except ValueError as e:
-            raise SystemExit(f"无效的 --resume session id: {raw_session_id}\n{e}") from e
+        except ValueError as exc:
+            raise SystemExit(f"无效的 --resume session id: {raw_session_id}\n{exc}") from exc
 
     return generate_session_id(), False
 
 
 def generate_session_id() -> str:
-    """
-    生成新的 session id。
-
-    优先使用标准库 uuid7；如果运行时不支持，则生成兼容 UUIDv7 布局的 ID。
-    """
+    """Generate a UUIDv7-compatible session ID."""
     if hasattr(uuid, "uuid7"):
         return str(uuid.uuid7())
 
