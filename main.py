@@ -67,7 +67,7 @@ def _configure_frozen_runtime() -> None:
 def main():
     """主函数：处理用户输入并返回带感叹号的内容"""
     _configure_frozen_runtime()
-    from core.server import server_run_stream
+    from ui.cli.runner import run_cli
 
     args = _parse_args()
     # 在读取模型、MCP、skills 等配置前，先从 AgentZ Home 加载 .env。
@@ -83,7 +83,7 @@ def main():
 
     try:
         asyncio.run(
-            server_run_stream(
+            run_cli(
                 settings=settings,
                 session_id=session_id,
                 requested_project_path=args.project_path,
