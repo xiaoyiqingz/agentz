@@ -19,6 +19,13 @@ from core.context.session_id import normalize_session_id
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="启动交互式 agent 客户端")
     parser.add_argument(
+        "mode",
+        nargs="?",
+        choices=("cli", "web"),
+        default="cli",
+        help="启动模式：cli（默认）或 web",
+    )
+    parser.add_argument(
         "--resume",
         metavar="SESSION_ID",
         help="恢复指定 session id 的输入历史和消息历史",
@@ -31,6 +38,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--agentz-home",
         help="AgentZ 数据与配置目录；不传时使用 AGENTZ_HOME 或 ~/.agentz",
     )
+    parser.add_argument("--host", default="127.0.0.1", help="Web 服务监听地址")
+    parser.add_argument("--port", type=int, default=8000, help="Web 服务监听端口")
     return parser.parse_args(argv)
 
 
@@ -67,12 +76,23 @@ def _configure_frozen_runtime() -> None:
 def main():
     """主函数：处理用户输入并返回带感叹号的内容"""
     _configure_frozen_runtime()
-    from ui.cli.runner import run_cli
-
     args = _parse_args()
     # 在读取模型、MCP、skills 等配置前，先从 AgentZ Home 加载 .env。
     _load_agentz_env(args.agentz_home)
     settings = load_settings()
+    if args.mode == "web":
+        from interfaces.http.server import run_web
+
+        run_web(
+            settings=settings,
+            host=args.host,
+            port=args.port,
+            default_project_path=args.project_path,
+        )
+        return
+
+    from ui.cli.runner import run_cli
+
     session_id, resumed = normalize_session_id(args.resume)
 
     print("欢迎使用交互式客户端！")

@@ -1,0 +1,64 @@
+:root {
+  color: #202124;
+  background: #fff;
+  font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; overflow: hidden; background: #fff; }
+button, textarea { font: inherit; }
+h1, p { margin: 0; }
+
+.app-shell { height: 100vh; overflow: hidden; display: grid; grid-template-columns: 360px minmax(0, 1fr); }
+.sidebar { min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 24px; border-right: 1px solid #e4e4e4; background: #fdfdfb; padding: 28px 22px; }
+.sidebar-header { display: flex; flex-direction: column; gap: 22px; }
+.eyebrow { color: #777; font-size: .7rem; font-weight: 700; letter-spacing: .15em; }
+h1 { color: #202124; font-size: 1.45rem; font-weight: 650; letter-spacing: -.02em; }
+
+button { border: 0; cursor: pointer; font-weight: 600; }
+button:disabled { cursor: wait; opacity: .55; }
+.new-session { width: fit-content; border-radius: 8px; background: transparent; color: #252525; padding: 4px 0; font-size: 1rem; }
+.new-session:hover { color: #a43fb5; }
+.session-list { min-height: 0; flex: 1; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
+.session-list.is-disabled { pointer-events: none; opacity: .65; }
+.session-card { width: 100%; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #282828; text-align: left; padding: 10px 8px; }
+.session-card:hover, .session-card.active { border-color: #ececec; background: #f5f5f5; }
+.session-preview, .session-id { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.session-preview { color: #242424; font-size: .96rem; font-weight: 560; }
+.session-id { margin-top: 5px; color: #a0a0a0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .67rem; }
+
+.chat-shell { width: min(980px, calc(100% - 64px)); min-height: 0; height: 100vh; margin: 0 auto; padding: 28px 0 18px; display: flex; flex-direction: column; gap: 18px; }
+.chat-header { min-height: 24px; display: flex; align-items: center; }
+.status { min-height: 20px; color: #9b9b9b; font-size: .78rem; }
+.messages { min-height: 0; flex: 1; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; overscroll-behavior: contain; padding: 8px 4px 14px; }
+.message { max-width: 78%; border-radius: 15px; color: #222; line-height: 1.55; padding: 17px 22px; white-space: pre-wrap; }
+.assistant { align-self: flex-start; background: #f4f4f5; }
+.user { align-self: flex-end; background: #71b998; color: #fff; }
+.message-content > :first-child { margin-top: 0; }
+.message-content > :last-child { margin-bottom: 0; }
+.message-content pre { overflow-x: auto; border-radius: 8px; background: #e7e7e8; padding: 12px; white-space: pre; }
+.message-content code { border-radius: 4px; background: #e7e7e8; padding: 2px 4px; }
+.message-content pre code { background: transparent; padding: 0; }
+.message-content table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
+.message-content th, .message-content td { border: 1px solid #d2d2d2; padding: 5px 8px; }
+.message-content a { color: #8054af; }
+.user .message-content a { color: #fff; }
+
+form { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end; border: 1px solid #e4e4e4; border-radius: 18px; box-shadow: 0 2px 7px rgb(0 0 0 / 7%); padding: 10px; }
+textarea { width: 100%; min-height: 44px; resize: vertical; border: 0; border-radius: 10px; background: transparent; color: inherit; padding: 10px; }
+textarea:focus { outline: none; }
+#send { min-width: 66px; border-radius: 11px; background: #d66bea; color: #fff; padding: 11px 15px; }
+#send:hover { background: #c456da; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+
+@media (max-width: 700px) {
+  body { overflow: auto; }
+  .app-shell { height: auto; min-height: 100vh; overflow: visible; grid-template-columns: 1fr; }
+  .sidebar { min-height: auto; overflow: visible; border-right: 0; border-bottom: 1px solid #e4e4e4; padding: 20px; }
+  .sidebar-header { gap: 12px; }
+  .session-list { max-height: 180px; }
+  .chat-shell { width: min(100% - 24px, 900px); height: auto; min-height: 70vh; padding-top: 18px; }
+  form { grid-template-columns: 1fr; }
+  #send { width: 100%; }
+  .message { max-width: 92%; }
+}

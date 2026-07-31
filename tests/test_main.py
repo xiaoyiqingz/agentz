@@ -26,6 +26,13 @@ class TestMain(unittest.TestCase):
 
         self.assertEqual(args.agentz_home, "/tmp/agentz-home")
 
+    def test_parse_args_supports_web_mode(self):
+        args = _parse_args(["web", "--host", "0.0.0.0", "--port", "8080"])
+
+        self.assertEqual(args.mode, "web")
+        self.assertEqual(args.host, "0.0.0.0")
+        self.assertEqual(args.port, 8080)
+
     def test_load_agentz_env_reads_env_from_selected_home(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             agentz_home = Path(temp_dir)

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AgentZ</title>
+    <link rel="stylesheet" href="/static/styles.css?v=7" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="sidebar" aria-label="会话列表">
+        <div class="sidebar-header">
+          <div>
+            <p class="eyebrow">AGENTZ</p>
+            <h1>项目助手</h1>
+          </div>
+          <button id="new-session" class="new-session" type="button">＋ 新建会话</button>
+        </div>
+        <div id="session-list" class="session-list" aria-live="polite">正在加载会话…</div>
+      </aside>
+      <section class="chat-shell">
+        <header class="chat-header"><p id="status" class="status">正在创建会话…</p></header>
+        <section id="messages" class="messages" aria-live="polite"></section>
+        <form id="chat-form">
+          <label class="sr-only" for="prompt">输入消息</label>
+          <textarea id="prompt" rows="3" placeholder="输入问题，Enter 发送，Shift+Enter 换行" required></textarea>
+          <button id="send" type="submit">发送</button>
+        </form>
+      </section>
+    </main>
+    <script type="module" src="/static/app.js?v=7"></script>
+  </body>
+</html>

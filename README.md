@@ -28,6 +28,21 @@ uv run main.py --project-path /path/to/project
 uv run main.py --resume <session_id>
 ```
 
+Start the local Web UI:
+
+```bash
+uv run main.py web
+# then open http://127.0.0.1:8000
+
+# bind newly created Web sessions to a specific project directory
+uv run main.py web --project-path /path/to/project --port 8080
+```
+
+The Web UI uses the same-origin SSE endpoint at
+`POST /api/v1/sessions/{session_id}/messages`. The browser sends only a
+session ID and prompt; history and the bound project directory remain on the
+server.
+
 Current runtime layout:
 
 ```text
