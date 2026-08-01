@@ -2,6 +2,7 @@
   color: #202124;
   background: #fff;
   font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 14px;
 }
 
 * { box-sizing: border-box; }
@@ -32,8 +33,9 @@ button:disabled { cursor: wait; opacity: .55; }
 .status { min-height: 20px; color: #9b9b9b; font-size: .78rem; }
 .messages { min-height: 0; flex: 1; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; overscroll-behavior: contain; padding: 8px 4px 14px; }
 .message { max-width: 78%; border-radius: 15px; color: #222; line-height: 1.55; padding: 17px 22px; white-space: pre-wrap; }
+.message-content.markdown { white-space: normal; }
 .assistant { align-self: flex-start; background: #f4f4f5; }
-.user { align-self: flex-end; background: #71b998; color: #fff; }
+.user { align-self: flex-end; background: #71b998; color: #fff; padding: 13px 18px; }
 .message-content > :first-child { margin-top: 0; }
 .message-content > :last-child { margin-bottom: 0; }
 .message-content pre { overflow-x: auto; border-radius: 8px; background: #e7e7e8; padding: 12px; white-space: pre; }

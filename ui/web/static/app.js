@@ -45,7 +45,10 @@ function renderMessages(history) {
   }
   for (const message of history) {
     const content = appendMessage(message.role, message.content);
-    if (message.html) content.innerHTML = message.html;
+    if (message.html) {
+      content.innerHTML = message.html;
+      content.classList.add("markdown");
+    }
   }
 }
 
@@ -148,7 +151,10 @@ async function sendMessage(prompt) {
       status.textContent = event.message;
     } else if (event.type === "done") {
       status.textContent = "回答完成";
-      if (event.html) answer.innerHTML = event.html;
+      if (event.html) {
+        answer.innerHTML = event.html;
+        answer.classList.add("markdown");
+      }
     } else if (event.type === "error") {
       status.textContent = `处理失败：${event.message}`;
     }
