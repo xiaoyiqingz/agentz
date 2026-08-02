@@ -8,13 +8,13 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
 from httpx import AsyncClient
 from pydantic_ai import Agent
-from pydantic_ai.messages import ModelMessage
+from pydantic_ai.messages import ModelMessage, ModelRequest, SystemPromptPart
 from pydantic_ai.run import AgentRunResultEvent
 from pydantic_ai_harness.planning import Planning
 
@@ -44,7 +44,7 @@ def create_agent(settings: Settings, project_path: Path) -> Agent:
     agent_kwargs = {
         "model": build_deepseek_model(settings),
         "deps_type": Deps,
-        "system_prompt": get_smart_assistant_prompt(),
+        "instructions": get_smart_assistant_prompt(),
         "capabilities": capabilities,
     }
     if registered_tools.toolsets:
@@ -92,6 +92,9 @@ async def open_agent_session(
         session_id=session_id,
         requested_project_path=requested_project_path,
     )
+    all_messages, migrated = _strip_legacy_system_prompts(runtime.all_messages)
+    if migrated:
+        runtime.session_store.save_message_history(all_messages)
     agent = create_agent(settings, runtime.project_path)
 
     async with AsyncClient() as client:
@@ -109,7 +112,7 @@ async def open_agent_session(
             runtime=runtime,
             agent=agent,
             deps=deps,
-            all_messages=runtime.all_messages,
+            all_messages=all_messages,
         )
 
 
@@ -144,3 +147,34 @@ async def stream_session_turn(
 
     session.all_messages = run_result.all_messages()
     session.save_history()
+
+
+def _strip_legacy_system_prompts(
+    messages: list[ModelMessage],
+) -> tuple[list[ModelMessage], bool]:
+    """Remove static prompts persisted before AgentZ switched to instructions.
+
+    AgentZ historically had one static ``system_prompt``. Its content is now
+    supplied by the current agent as ``instructions``, so retaining those old
+    parts would defeat the new history semantics and waste context tokens.
+    """
+    migrated_messages: list[ModelMessage] = []
+    changed = False
+
+    for message in messages:
+        if not isinstance(message, ModelRequest):
+            migrated_messages.append(message)
+            continue
+
+        parts = [
+            part for part in message.parts if not isinstance(part, SystemPromptPart)
+        ]
+        if len(parts) == len(message.parts):
+            migrated_messages.append(message)
+            continue
+
+        changed = True
+        if parts:
+            migrated_messages.append(replace(message, parts=parts))
+
+    return migrated_messages, changed
