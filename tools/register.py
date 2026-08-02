@@ -22,6 +22,9 @@ TOOL_STATUS_LABELS = {
     "git_readonly": "正在检查 Git 仓库",
     "read_file": "正在读取项目文件",
     "search_files": "正在搜索项目代码",
+    "write_file": "正在写入项目文件",
+    "edit_file": "正在修改项目文件",
+    "create_directory": "正在创建项目目录",
     "write_plan": "正在更新执行计划",
 }
 

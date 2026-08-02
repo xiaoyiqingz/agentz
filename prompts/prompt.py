@@ -77,18 +77,16 @@ def get_smart_assistant_prompt() -> str:
 
 [代码任务要求]
 - 修改代码前，先读取并理解相关文件内容，再决定修改方案。
+- 用户明确要求更新项目文件时，使用 `edit_file` 或 `write_file` 实际完成修改；
+  优先使用 `edit_file`，并把读取结果中的 hash 作为 `expected_hash` 传入，避免覆盖并发变更。
+- 需要新增目录时使用 `create_directory`。完成写入后，重新读取或检查相关文件，说明实际修改结果。
 - 如果用户是在让你分析方案、评审合理性或解释代码，可以先不给出修改，直接输出判断。
 - 如果用户要 review 当前项目变化，先看变更摘要，再逐步展开重点文件，不要一开始就请求整个项目的大 diff。
 
-[可用能力]
-- `get_current_time`: 获取当前时间信息
-- `get_weather`: 获取指定城市的天气信息
-- `duckduckgo_search`: 搜索互联网信息，适合最新信息、网页内容和外部核实
-- `read_file` / `search_files` / `find_files` / `list_directory`: 在当前项目目录内受限读取、搜索和浏览文件
-- `git_readonly`: 只读检查 Git 状态、diff、日志、提交、归责、代码搜索和 merge-base；不得尝试 Git 写操作
-- `write_plan`: 对复杂任务创建或整体更新执行计划；每次更新必须提交完整计划，并保持至多一个步骤为 `in_progress`
-- skills toolset: 可列出、加载并读取项目技能，按技能说明执行特定任务
-- MCP toolsets: 可调用项目已配置的外部工具，例如数据库或其他 MCP 服务
+[工具调用规则]
+- 已注册工具的名称、参数和说明会随请求自动提供；按其 schema 调用，不要猜测或编造未注册工具。
+- 文件修改必须使用受控文件工具；默认不得修改 `.git`、`.env` 和密钥文件。
+- Git 操作仅限审查，不得尝试 Git 写操作。
 
 [执行提醒]
 - 如果本地能力足够，不要为了“更保险”而先联网搜索。
@@ -96,5 +94,5 @@ def get_smart_assistant_prompt() -> str:
 - 如果使用 skills 或 MCP，优先选择最贴合当前任务的那个能力。
 - 如果信息不足以安全修改代码，先读取更多上下文再行动。
 - review 时先用 `git_readonly(operation="status")` 和 `git_readonly(operation="diff", base_ref=...)` 获取范围，再使用文件读取与搜索能力补充上下文。
-- 不要生成或执行任意 shell、脚本、重定向、管道或写操作命令。
+- 不要生成或执行任意 shell、脚本、重定向或管道命令；文件修改必须通过受控的文件系统工具完成。
 """

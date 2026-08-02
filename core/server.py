@@ -27,7 +27,7 @@ from tools.register import build_agent_tools
 from .context.compaction import build_compaction
 from .context.deps import Deps
 from .context.session_runtime import SessionRuntime, initialize_session_runtime
-from .readonly_filesystem import build_readonly_filesystem
+from .readonly_filesystem import build_project_filesystem
 
 
 def create_agent(settings: Settings, project_path: Path) -> Agent:
@@ -36,7 +36,7 @@ def create_agent(settings: Settings, project_path: Path) -> Agent:
 
     capabilities = [
         build_compaction(settings),
-        build_readonly_filesystem(project_path),
+        build_project_filesystem(project_path),
     ]
     if settings.planning_enabled:
         capabilities.append(Planning(cache_ttl=settings.planning_cache_ttl))

@@ -1,11 +1,13 @@
 import unittest
 from pathlib import Path
+from unittest.mock import Mock
 
 from pydantic_ai_harness.compaction import TieredCompaction
 from pydantic_ai_harness.planning import Planning
+from pydantic_ai.models.test import TestModel
 
 from config.settings import load_settings
-from core.readonly_filesystem import READ_ONLY_FILESYSTEM_TOOLS
+from core.readonly_filesystem import PROJECT_FILESYSTEM_TOOLS
 from core.server import create_agent
 from prompts.prompt import get_smart_assistant_prompt
 from tools.register import build_agent_tools
@@ -76,13 +78,49 @@ class TestAgentTools(unittest.TestCase):
 
         self.assertEqual(labels["read_file"], "正在读取项目文件")
         self.assertEqual(labels["search_files"], "正在搜索项目代码")
+        self.assertEqual(labels["edit_file"], "正在修改项目文件")
+        self.assertEqual(labels["write_file"], "正在写入项目文件")
         self.assertEqual(labels["git_readonly"], "正在检查 Git 仓库")
         self.assertEqual(labels["write_plan"], "正在更新执行计划")
 
-    def test_readonly_filesystem_exposes_no_write_tools(self):
+    def test_project_filesystem_exposes_controlled_write_tools(self):
         self.assertEqual(
-            READ_ONLY_FILESYSTEM_TOOLS,
-            {"read_file", "list_directory", "search_files", "find_files", "file_info"},
+            PROJECT_FILESYSTEM_TOOLS,
+            {
+                "read_file",
+                "write_file",
+                "edit_file",
+                "list_directory",
+                "search_files",
+                "find_files",
+                "create_directory",
+                "file_info",
+            },
+        )
+
+    def test_smart_prompt_uses_generic_tool_rules_without_manual_tool_catalog(self):
+        prompt = get_smart_assistant_prompt()
+
+        self.assertIn("[工具调用规则]", prompt)
+        self.assertIn("会随请求自动提供", prompt)
+        self.assertNotIn("[可用能力]", prompt)
+        self.assertNotIn("`get_current_time`:", prompt)
+
+    def test_registered_tools_are_sent_to_the_model_without_prompt_catalog(self):
+        agent = create_agent(self.settings, Path.cwd())
+        model = TestModel(call_tools=[], custom_output_text="ok")
+
+        with agent.override(model=model):
+            agent.run_sync("请告诉我当前有哪些能力", deps=Mock())
+
+        self.assertIsNotNone(model.last_model_request_parameters)
+        tool_names = {
+            tool.name for tool in model.last_model_request_parameters.function_tools
+        }
+        self.assertTrue(
+            {"get_current_time", "get_weather", "duckduckgo_search"}.issubset(
+                tool_names
+            )
         )
 
     def test_hidden_tool_result_names_are_provided_by_registry(self):
