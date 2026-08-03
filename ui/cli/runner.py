@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from config.settings import Settings
 from commands.builtin_commands import CommandType, process_builtin_command
-from core.server import open_agent_session, stream_session_turn
+from core.server import (
+    AgentSession,
+    build_usage_limit_prompt,
+    open_agent_session,
+    stream_session_turn,
+)
+from core.shell_approval import ShellApprovalRequest
 from core.stream_event_handler import consume_stream_events, render_message_history
 from tools.register import get_tool_status_labels
 
@@ -45,6 +51,16 @@ async def run_cli(
             while True:
                 try:
                     user_input = await input_handler.read_input()
+                    recovery_action = {
+                        "/continue": "continue",
+                        "/summarize": "summarize",
+                    }.get(user_input.strip().lower())
+                    if recovery_action is not None:
+                        recovery = session.runtime.session_store.load_usage_limit_recovery()
+                        if recovery is None:
+                            print("当前没有可恢复的受限任务。")
+                            continue
+                        user_input = build_usage_limit_prompt(recovery, recovery_action)
                     is_builtin, result, command_type = process_builtin_command(
                         user_input, session_id=session_id
                     )
@@ -69,10 +85,17 @@ async def run_cli(
                         stream=stream_session_turn(session, user_input),
                         formatter=formatter,
                         tool_status_labels=tool_status_labels,
+                        on_shell_approval=lambda request: _confirm_shell_command(
+                            input_handler, session, request
+                        ),
                     )
                     formatter.render_final()
                     formatter.reset()
 
+                    if stream_result.usage_limit_reached is not None:
+                        print("\n本轮达到分析预算。输入 /continue 继续分析，或 /summarize 生成阶段结论。\n")
+                        input_handler.save_history()
+                        continue
                     if stream_result.run_result is None:
                         raise RuntimeError("Agent 流式运行未返回最终结果")
                     input_handler.save_history()
@@ -88,3 +111,16 @@ async def run_cli(
             session.save_history()
             input_handler.cleanup()
             raise
+
+
+async def _confirm_shell_command(
+    input_handler: InputHandler,
+    session: AgentSession,
+    request: ShellApprovalRequest,
+) -> None:
+    approved = await input_handler.confirm_shell_command(
+        request.command,
+        request.working_directory,
+        request.is_background,
+    )
+    session.deps.shell_approvals.resolve(request.approval_id, approved)

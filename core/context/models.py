@@ -24,3 +24,13 @@ class ConversationSummary(BaseModel):
     summary_text: str
     turn_count_at_summary: int
     updated_at: datetime = Field(default_factory=utc_now)
+
+
+class UsageLimitRecovery(BaseModel):
+    """Persisted evidence needed to continue a run stopped by a usage limit."""
+
+    session_id: str
+    original_prompt: str
+    tool_transcript: str
+    limit_message: str
+    updated_at: datetime = Field(default_factory=utc_now)

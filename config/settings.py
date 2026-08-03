@@ -50,6 +50,8 @@ class Settings:
     context_max_part_tokens: int
     planning_enabled: bool
     planning_cache_ttl: Literal["5m", "1h"]
+    request_limit: int
+    tool_calls_limit: int
 
 
 def load_settings(env: dict[str, str] | None = None) -> Settings:
@@ -111,6 +113,8 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
         planning_enabled=values.get("USE_PLANNING_MODE", "true").lower()
         not in {"0", "false", "no", "off"},
         planning_cache_ttl=_load_planning_cache_ttl(values),
+        request_limit=_load_positive_int(values, "REQUEST_LIMIT", 50),
+        tool_calls_limit=_load_positive_int(values, "TOOL_CALLS_LIMIT", 40),
     )
 
 
@@ -126,3 +130,10 @@ def _load_planning_cache_ttl(values: dict[str, str]) -> Literal["5m", "1h"]:
     if value not in {"5m", "1h"}:
         raise ValueError("PLANNING_CACHE_TTL 必须为 '5m' 或 '1h'")
     return value  # type: ignore[return-value]
+
+
+def _load_positive_int(values: dict[str, str], key: str, default: int) -> int:
+    value = int(values.get(key, str(default)))
+    if value < 1:
+        raise ValueError(f"{key} 必须为正整数")
+    return value

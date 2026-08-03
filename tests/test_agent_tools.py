@@ -136,6 +136,7 @@ class TestAgentTools(unittest.TestCase):
                 tool_names
             )
         )
+        self.assertTrue({"run_command", "start_command"}.issubset(tool_names))
 
     def test_hidden_tool_result_names_are_provided_by_registry(self):
         hidden_names = build_agent_tools(self.settings).hidden_result_names

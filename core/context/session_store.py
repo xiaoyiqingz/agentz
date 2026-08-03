@@ -7,7 +7,7 @@ from typing import Any
 from pydantic_ai import ModelMessagesTypeAdapter
 from pydantic_ai.messages import ModelMessage
 
-from .models import ConversationSummary, SessionMeta
+from .models import ConversationSummary, SessionMeta, UsageLimitRecovery
 
 
 class SessionStore:
@@ -20,6 +20,7 @@ class SessionStore:
         self.message_history_path = self._session_dir / "agentz_message_history.json"
         self.meta_path = self._session_dir / "session_meta.json"
         self.summary_path = self._session_dir / "conversation_summary.json"
+        self.usage_limit_recovery_path = self._session_dir / "usage_limit_recovery.json"
 
     @property
     def session_dir(self) -> Path:
@@ -70,3 +71,20 @@ class SessionStore:
         if summary is None:
             return None
         return json.loads(summary.model_dump_json())
+
+    def load_usage_limit_recovery(self) -> UsageLimitRecovery | None:
+        if not self.usage_limit_recovery_path.exists():
+            return None
+        return UsageLimitRecovery.model_validate_json(
+            self.usage_limit_recovery_path.read_text("utf-8")
+        )
+
+    def save_usage_limit_recovery(self, recovery: UsageLimitRecovery) -> None:
+        self.session_dir.mkdir(parents=True, exist_ok=True)
+        self.usage_limit_recovery_path.write_text(
+            recovery.model_dump_json(indent=2), encoding="utf-8"
+        )
+
+    def clear_usage_limit_recovery(self) -> None:
+        if self.usage_limit_recovery_path.exists():
+            self.usage_limit_recovery_path.unlink()

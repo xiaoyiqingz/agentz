@@ -45,6 +45,12 @@ button:disabled { cursor: wait; opacity: .55; }
 .message-content th, .message-content td { border: 1px solid #d2d2d2; padding: 5px 8px; }
 .message-content a { color: #8054af; }
 .user .message-content a { color: #fff; }
+.shell-approval { border: 1px solid #e2c6ef; background: #fcf7ff; white-space: normal; }
+.shell-approval p { margin: 10px 0 6px; color: #5c5361; font-size: .86rem; }
+.shell-approval pre { margin: 0; overflow-x: auto; border-radius: 8px; background: #eee7f1; padding: 12px; white-space: pre-wrap; word-break: break-word; }
+.shell-approval-actions { display: flex; gap: 8px; margin-top: 14px; }
+.shell-approval-actions button { border-radius: 8px; background: #a43fb5; color: #fff; padding: 8px 14px; }
+.shell-approval-actions button.secondary { background: #e6e0e8; color: #3e3642; }
 
 form { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end; border: 1px solid #e4e4e4; border-radius: 18px; box-shadow: 0 2px 7px rgb(0 0 0 / 7%); padding: 10px; }
 textarea { width: 100%; min-height: 44px; resize: vertical; border: 0; border-radius: 10px; background: transparent; color: inherit; padding: 10px; }

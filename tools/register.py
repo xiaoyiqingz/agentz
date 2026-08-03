@@ -20,6 +20,8 @@ TOOL_STATUS_LABELS = {
     "read_skill_resource": "正在读取技能资料",
     "run_skill_script": "正在执行技能脚本",
     "git_readonly": "正在检查 Git 仓库",
+    "run_command": "正在请求 Shell 命令执行确认",
+    "start_command": "正在请求后台 Shell 命令执行确认",
     "read_file": "正在读取项目文件",
     "search_files": "正在搜索项目代码",
     "write_file": "正在写入项目文件",

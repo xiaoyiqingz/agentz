@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from markdown_it import MarkdownIt
@@ -31,7 +31,13 @@ from starlette.staticfiles import StaticFiles
 from config.settings import Settings
 from core.context.session_id import generate_session_id
 from core.context.session_store import SessionStore
-from core.server import open_agent_session, stream_session_turn
+from core.server import (
+    UsageLimitReached,
+    build_usage_limit_prompt,
+    open_agent_session,
+    stream_session_turn,
+)
+from core.shell_approval import ShellApprovalRequest, shell_approval_registry
 from tools.register import get_tool_status_labels
 
 
@@ -43,7 +49,12 @@ MARKDOWN_RENDERER = MarkdownIt(
 
 
 class MessageRequest(BaseModel):
-    prompt: str
+    prompt: str | None = None
+    usage_limit_action: Literal["continue", "summarize"] | None = None
+
+
+class ShellApprovalDecisionRequest(BaseModel):
+    decision: Literal["approve", "reject"]
 
 
 def create_app(
@@ -90,9 +101,16 @@ def create_app(
         except (ValidationError, json.JSONDecodeError):
             return JSONResponse({"detail": "请求体必须包含 prompt 字符串"}, status_code=422)
 
-        prompt = payload.prompt.strip()
-        if not prompt:
-            return JSONResponse({"detail": "prompt 不能为空"}, status_code=422)
+        if payload.usage_limit_action is not None:
+            store = SessionStore(settings.agentz_home, session_id)
+            recovery = store.load_usage_limit_recovery()
+            if recovery is None:
+                return JSONResponse({"detail": "没有可恢复的受限任务"}, status_code=409)
+            prompt = build_usage_limit_prompt(recovery, payload.usage_limit_action)
+        else:
+            prompt = (payload.prompt or "").strip()
+            if not prompt:
+                return JSONResponse({"detail": "prompt 不能为空"}, status_code=422)
 
         async def event_stream():
             markdown_parts: list[str] = []
@@ -121,6 +139,25 @@ def create_app(
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
 
+    async def resolve_shell_approval(request: Request) -> Response:
+        session_id = _validate_session_id(request.path_params["session_id"])
+        approval_id = request.path_params["approval_id"]
+        if session_id is None:
+            return JSONResponse({"detail": "session_id 必须是 UUID"}, status_code=422)
+        try:
+            payload = ShellApprovalDecisionRequest.model_validate(await request.json())
+        except (ValidationError, json.JSONDecodeError):
+            return JSONResponse({"detail": "decision 必须为 approve 或 reject"}, status_code=422)
+
+        resolved = shell_approval_registry.resolve(
+            session_id,
+            approval_id,
+            payload.decision == "approve",
+        )
+        if not resolved:
+            return JSONResponse({"detail": "审批不存在、已过期或已处理"}, status_code=404)
+        return JSONResponse({"status": "approved" if payload.decision == "approve" else "rejected"})
+
     return Starlette(
         routes=[
             Route("/", index),
@@ -138,6 +175,11 @@ def create_app(
                 message,
                 methods=["POST"],
             ),
+            Route(
+                "/api/v1/sessions/{session_id}/shell-approvals/{approval_id}",
+                resolve_shell_approval,
+                methods=["POST"],
+            ),
         ]
     )
 
@@ -149,7 +191,7 @@ def _validate_session_id(value: str) -> str | None:
         return None
 
 
-def _event_payload(event: Any, tool_status_labels: dict[str, str]) -> dict[str, str] | None:
+def _event_payload(event: Any, tool_status_labels: dict[str, str]) -> dict[str, Any] | None:
     if isinstance(event, PartStartEvent) and isinstance(event.part, TextPart):
         if event.part.content:
             return {"type": "text_delta", "delta": event.part.content}
@@ -164,12 +206,27 @@ def _event_payload(event: Any, tool_status_labels: dict[str, str]) -> dict[str, 
         }
     elif isinstance(event, FunctionToolResultEvent):
         return {"type": "tool_complete", "message": "工具调用已完成"}
+    elif isinstance(event, ShellApprovalRequest):
+        return {
+            "type": "shell_approval_requested",
+            "approval_id": event.approval_id,
+            "command": event.command,
+            "working_directory": event.working_directory,
+            "is_background": event.is_background,
+        }
+    elif isinstance(event, UsageLimitReached):
+        return {
+            "type": "usage_limit_reached",
+            "message": event.message,
+            "request_limit": event.request_limit,
+            "tool_calls_limit": event.tool_calls_limit,
+        }
     elif isinstance(event, AgentRunResultEvent):
         return {"type": "done", "message": "回答已完成"}
     return None
 
 
-def _encode_sse(payload: dict[str, str]) -> str:
+def _encode_sse(payload: dict[str, Any]) -> str:
     return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
 

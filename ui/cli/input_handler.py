@@ -13,16 +13,62 @@ from pathlib import Path
 from typing import Optional
 
 from prompt_toolkit import PromptSession
+from prompt_toolkit.application import Application
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.document import Document
-from prompt_toolkit.formatted_text import HTML
+from prompt_toolkit.formatted_text import HTML, FormattedText
 from prompt_toolkit.history import FileHistory
+from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.layout import Layout
+from prompt_toolkit.layout.containers import Window
+from prompt_toolkit.layout.controls import FormattedTextControl
 
 from commands.builtin_commands import get_slash_command_descriptions
 
 
 PROMPT_HTML = HTML("<ansibrightcyan>&gt;</ansibrightcyan> ")
+
+
+def _run_inline_shell_confirmation(action: str, text: str) -> bool:
+    """Show an arrow-key selector without switching to an alternate screen."""
+    selected = [1]  # Default to cancel when the user simply presses Enter.
+    bindings = KeyBindings()
+
+    def fragments() -> FormattedText:
+        execute_style = "reverse bold" if selected[0] == 0 else ""
+        cancel_style = "reverse bold" if selected[0] == 1 else ""
+        return FormattedText(
+            [
+                ("bold ansiyellow", f"确认{action}\n"),
+                ("", f"{text}\n"),
+                (execute_style, "  执行  "),
+                (cancel_style, "  取消  \n"),
+                ("class:instruction", "使用 ↑/↓ 选择，Enter 确认，Esc 取消"),
+            ]
+        )
+
+    @bindings.add("up")
+    @bindings.add("down")
+    def _move_selection(event) -> None:
+        selected[0] = 1 - selected[0]
+        event.app.invalidate()
+
+    @bindings.add("enter")
+    def _confirm(event) -> None:
+        event.app.exit(result=selected[0] == 0)
+
+    @bindings.add("escape")
+    @bindings.add("c-c")
+    def _cancel(event) -> None:
+        event.app.exit(result=False)
+
+    return Application(
+        layout=Layout(Window(FormattedTextControl(fragments), wrap_lines=True)),
+        key_bindings=bindings,
+        full_screen=False,
+        erase_when_done=False,
+    ).run()
 
 
 class SlashCommandCompleter(Completer):
@@ -162,6 +208,23 @@ class InputHandler:
         if self.prompt_session is not None:
             return await self.prompt_session.prompt_async(PROMPT_HTML)
         return await asyncio.to_thread(input, "> ")
+
+    async def confirm_shell_command(
+        self, command: str, working_directory: str, is_background: bool
+    ) -> bool:
+        """Present an explicit keyboard choice before a Shell command runs."""
+        action = "启动后台命令" if is_background else "执行命令"
+        text = f"工作目录：{working_directory}\n\n命令：\n{command}\n\n请选择："
+        if self.prompt_session is not None:
+            choice = await asyncio.to_thread(
+                _run_inline_shell_confirmation,
+                action,
+                text,
+            )
+            return choice
+
+        choice = await asyncio.to_thread(input, f"{text}\n[1] 执行  [2] 取消（默认取消）： ")
+        return choice.strip() == "1"
 
     def save_history(self) -> None:
         """

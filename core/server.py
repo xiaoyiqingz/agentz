@@ -9,13 +9,24 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, replace
+import asyncio
+import os
 from pathlib import Path
 from typing import Any
 
 from httpx import AsyncClient
-from pydantic_ai import Agent
-from pydantic_ai.messages import ModelMessage, ModelRequest, SystemPromptPart
+from pydantic_ai import Agent, DeferredToolRequests, ToolDenied, UsageLimitExceeded
+from pydantic_ai.capabilities import HandleDeferredToolCalls
+from pydantic_ai.messages import (
+    FunctionToolCallEvent,
+    FunctionToolResultEvent,
+    ModelMessage,
+    ModelRequest,
+    SystemPromptPart,
+)
 from pydantic_ai.run import AgentRunResultEvent
+from pydantic_ai.usage import UsageLimits
+from pydantic_ai_harness import Shell
 from pydantic_ai_harness.planning import Planning
 
 from config.settings import Settings
@@ -26,17 +37,46 @@ from tools.register import build_agent_tools
 
 from .context.compaction import build_compaction
 from .context.deps import Deps
+from .context.models import UsageLimitRecovery
 from .context.session_runtime import SessionRuntime, initialize_session_runtime
 from .readonly_filesystem import build_project_filesystem
+from .shell_approval import (
+    ShellApprovalManager,
+    ShellApprovalRequest,
+    shell_approval_registry,
+)
+
+
+SHELL_EXECUTION_TOOLS = frozenset({"run_command", "start_command"})
+MAX_RECOVERY_TRANSCRIPT_CHARS = 30_000
+
+
+@dataclass(frozen=True)
+class UsageLimitReached:
+    message: str
+    request_limit: int
+    tool_calls_limit: int
 
 
 def create_agent(settings: Settings, project_path: Path) -> Agent:
     """Build the Agent configured for one session's bound project."""
     registered_tools = build_agent_tools(settings)
 
+    shell_toolset = Shell(
+        cwd=project_path,
+        denied_commands=[],
+        default_timeout=30.0,
+        max_output_chars=50_000,
+        persist_cwd=False,
+        allow_interactive=False,
+        env=_build_shell_environment(),
+    ).get_toolset().approval_required(
+        lambda _ctx, tool_def, _args: tool_def.name in SHELL_EXECUTION_TOOLS
+    )
     capabilities = [
         build_compaction(settings),
         build_project_filesystem(project_path),
+        HandleDeferredToolCalls(handler=_handle_shell_approvals),
     ]
     if settings.planning_enabled:
         capabilities.append(Planning(cache_ttl=settings.planning_cache_ttl))
@@ -47,10 +87,18 @@ def create_agent(settings: Settings, project_path: Path) -> Agent:
         "instructions": get_smart_assistant_prompt(),
         "capabilities": capabilities,
     }
-    if registered_tools.toolsets:
-        agent_kwargs["toolsets"] = registered_tools.toolsets
+    agent_kwargs["toolsets"] = [shell_toolset, *registered_tools.toolsets]
 
     return Agent(**agent_kwargs)
+
+
+def _build_shell_environment() -> dict[str, str]:
+    """Provide build tools only the minimum conventional process environment."""
+    return {
+        key: value
+        for key in ("PATH", "HOME", "TMPDIR")
+        if (value := os.environ.get(key)) is not None
+    }
 
 
 @dataclass
@@ -97,23 +145,29 @@ async def open_agent_session(
         runtime.session_store.save_message_history(all_messages)
     agent = create_agent(settings, runtime.project_path)
 
-    async with AsyncClient() as client:
-        instrument_http_client(client, settings)
-        deps = Deps(
-            client=client,
-            session_id=session_id,
-            conversation_id=runtime.conversation_id,
-            agentz_home=settings.agentz_home,
-            project_path=runtime.project_path,
-            settings=settings,
-            session_store=runtime.session_store,
-        )
-        yield AgentSession(
-            runtime=runtime,
-            agent=agent,
-            deps=deps,
-            all_messages=all_messages,
-        )
+    shell_approvals = ShellApprovalManager(session_id)
+    shell_approval_registry.register(shell_approvals)
+    try:
+        async with AsyncClient() as client:
+            instrument_http_client(client, settings)
+            deps = Deps(
+                client=client,
+                session_id=session_id,
+                conversation_id=runtime.conversation_id,
+                agentz_home=settings.agentz_home,
+                project_path=runtime.project_path,
+                settings=settings,
+                session_store=runtime.session_store,
+                shell_approvals=shell_approvals,
+            )
+            yield AgentSession(
+                runtime=runtime,
+                agent=agent,
+                deps=deps,
+                all_messages=all_messages,
+            )
+    finally:
+        shell_approval_registry.unregister(shell_approvals)
 
 
 async def stream_session_turn(
@@ -127,26 +181,119 @@ async def stream_session_turn(
     the stream completes successfully.
     """
     run_result = None
-    async with session.agent.run_stream_events(
-        user_input,
-        deps=session.deps,
-        message_history=session.all_messages,
-        conversation_id=session.runtime.conversation_id,
-        metadata={
-            "session_id": session.session_id,
-            "project_path": str(session.project_path),
-        },
-    ) as stream:
-        async for event in stream:
-            if isinstance(event, AgentRunResultEvent):
-                run_result = event.result
-            yield event
+    transcript: list[str] = []
+    try:
+        async with session.agent.run_stream_events(
+            user_input,
+            deps=session.deps,
+            message_history=session.all_messages,
+            conversation_id=session.runtime.conversation_id,
+            metadata={
+                "session_id": session.session_id,
+                "project_path": str(session.project_path),
+            },
+            usage_limits=_usage_limits(session.deps.settings),
+        ) as stream:
+            event_iterator = stream.__aiter__()
+            event_task = asyncio.ensure_future(anext(event_iterator))
+            approval_task = asyncio.create_task(session.deps.shell_approvals.next_request())
+            try:
+                while True:
+                    done, _ = await asyncio.wait(
+                        {event_task, approval_task},
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
+                    if approval_task in done:
+                        yield approval_task.result()
+                        approval_task = asyncio.create_task(
+                            session.deps.shell_approvals.next_request()
+                        )
+                    if event_task not in done:
+                        continue
+                    try:
+                        event = event_task.result()
+                    except StopAsyncIteration:
+                        break
+                    _append_recovery_transcript(transcript, event)
+                    if isinstance(event, AgentRunResultEvent):
+                        run_result = event.result
+                    yield event
+                    event_task = asyncio.ensure_future(anext(event_iterator))
+            finally:
+                event_task.cancel()
+                approval_task.cancel()
+    except UsageLimitExceeded as exc:
+        recovery = UsageLimitRecovery(
+            session_id=session.session_id,
+            original_prompt=user_input,
+            tool_transcript="\n\n".join(transcript)[-MAX_RECOVERY_TRANSCRIPT_CHARS:],
+            limit_message=str(exc),
+        )
+        session.runtime.session_store.save_usage_limit_recovery(recovery)
+        yield UsageLimitReached(
+            message=str(exc),
+            request_limit=session.deps.settings.request_limit,
+            tool_calls_limit=session.deps.settings.tool_calls_limit,
+        )
+        return
 
     if run_result is None:
         raise RuntimeError("Agent 流式运行未返回最终结果")
 
     session.all_messages = run_result.all_messages()
     session.save_history()
+    session.runtime.session_store.clear_usage_limit_recovery()
+
+
+def _usage_limits(settings: Settings) -> UsageLimits:
+    return UsageLimits(
+        request_limit=settings.request_limit,
+        tool_calls_limit=settings.tool_calls_limit,
+    )
+
+
+def _append_recovery_transcript(transcript: list[str], event: Any) -> None:
+    if isinstance(event, FunctionToolCallEvent):
+        transcript.append(f"工具调用 {event.part.tool_name}: {event.part.args}")
+    elif isinstance(event, FunctionToolResultEvent):
+        transcript.append(f"工具结果: {event.result.content}")
+
+
+def build_usage_limit_prompt(recovery: UsageLimitRecovery, action: str) -> str:
+    """Build a fresh, budgeted run from persisted evidence after a limit hit."""
+    if action == "summarize":
+        instruction = (
+            "不要调用任何工具。仅基于以下已保存的工具结果，给出阶段结论、"
+            "已核实事实、尚未验证的缺口与建议下一步。"
+        )
+    else:
+        instruction = (
+            "继续完成原任务。优先使用以下已保存的工具结果，避免重复读取；"
+            "仅补充完成结论所必需的内容。"
+        )
+    return (
+        f"{instruction}\n\n原任务：\n{recovery.original_prompt}\n\n"
+        f"此前已获得的工具记录：\n{recovery.tool_transcript}"
+    )
+
+
+async def _handle_shell_approvals(
+    ctx: Any, requests: DeferredToolRequests
+) -> Any:
+    """Suspend deferred Shell calls until the active UI makes a choice."""
+    approvals: dict[str, bool | ToolDenied] = {}
+    for call in requests.approvals:
+        args = call.args if isinstance(call.args, dict) else {}
+        request = ctx.deps.shell_approvals.create_request(
+            command=str(args.get("command", "")),
+            working_directory=str(ctx.deps.project_path),
+            is_background=call.tool_name == "start_command",
+        )
+        if await ctx.deps.shell_approvals.wait_for_decision(request.approval_id):
+            approvals[call.tool_call_id] = True
+        else:
+            approvals[call.tool_call_id] = ToolDenied("用户取消了 Shell 命令执行")
+    return requests.build_results(approvals=approvals)
 
 
 def _strip_legacy_system_prompts(

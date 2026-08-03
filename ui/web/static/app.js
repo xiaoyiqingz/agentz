@@ -22,6 +22,70 @@ function appendMessage(role, text = "") {
   return content;
 }
 
+function appendShellApproval(event) {
+  const card = document.createElement("article");
+  card.className = "message assistant shell-approval";
+  const title = document.createElement("strong");
+  title.textContent = event.is_background ? "确认启动后台命令" : "确认执行命令";
+  const directory = document.createElement("p");
+  directory.textContent = `工作目录：${event.working_directory}`;
+  const command = document.createElement("pre");
+  command.textContent = event.command;
+  const actions = document.createElement("div");
+  actions.className = "shell-approval-actions";
+  const approve = document.createElement("button");
+  approve.type = "button";
+  approve.textContent = "执行";
+  const reject = document.createElement("button");
+  reject.type = "button";
+  reject.className = "secondary";
+  reject.textContent = "取消";
+  const decide = async (decision) => {
+    approve.disabled = true;
+    reject.disabled = true;
+    try {
+      const response = await fetch(
+        `/api/v1/sessions/${sessionId}/shell-approvals/${event.approval_id}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ decision }),
+        },
+      );
+      if (!response.ok) throw new Error("命令审批已失效");
+      title.textContent = decision === "approve" ? "已批准执行命令" : "已取消命令执行";
+    } catch (error) {
+      title.textContent = `审批失败：${error.message}`;
+    }
+  };
+  approve.addEventListener("click", () => decide("approve"));
+  reject.addEventListener("click", () => decide("reject"));
+  actions.append(approve, reject);
+  card.append(title, directory, command, actions);
+  messages.append(card);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function appendUsageLimitActions(event) {
+  const card = document.createElement("article");
+  card.className = "message assistant shell-approval";
+  const title = document.createElement("strong");
+  title.textContent = "本轮分析达到预算上限";
+  const detail = document.createElement("p");
+  detail.textContent = event.message;
+  const actions = document.createElement("div");
+  actions.className = "shell-approval-actions";
+  for (const [action, label] of [["continue", "继续分析"], ["summarize", "生成阶段结论"]]) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = label;
+    button.addEventListener("click", () => sendRecovery(action));
+    actions.append(button);
+  }
+  card.append(title, detail, actions);
+  messages.append(card);
+}
+
 function setSending(value) {
   sending = value;
   sendButton.disabled = value;
@@ -131,11 +195,11 @@ function readSseChunk(chunk, buffer, onEvent) {
   return remainder;
 }
 
-async function sendMessage(prompt) {
+async function sendMessage(payload) {
   const response = await fetch(`/api/v1/sessions/${sessionId}/messages`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify(payload),
   });
   if (!response.ok || !response.body) throw new Error("请求失败，请稍后重试");
   const answer = appendMessage("assistant");
@@ -149,6 +213,12 @@ async function sendMessage(prompt) {
       answer.textContent += event.delta;
     } else if (event.type === "tool_status") {
       status.textContent = event.message;
+    } else if (event.type === "shell_approval_requested") {
+      status.textContent = "等待你确认 Shell 命令…";
+      appendShellApproval(event);
+    } else if (event.type === "usage_limit_reached") {
+      status.textContent = "本轮分析达到预算上限";
+      appendUsageLimitActions(event);
     } else if (event.type === "done") {
       status.textContent = "回答完成";
       if (event.html) {
@@ -165,8 +235,20 @@ async function sendMessage(prompt) {
     if (done) break;
     buffer = readSseChunk(decoder.decode(value, { stream: true }), buffer, handleEvent);
   }
-  if (!receivedText) answer.textContent = "本轮未返回可显示的文本。";
+  if (!receivedText && !document.querySelector(".shell-approval")) answer.textContent = "本轮未返回可显示的文本。";
   await refreshSessionList();
+}
+
+async function sendRecovery(action) {
+  if (sending) return;
+  setSending(true);
+  try {
+    await sendMessage({ usage_limit_action: action });
+  } catch (error) {
+    status.textContent = error.message;
+  } finally {
+    setSending(false);
+  }
 }
 
 form.addEventListener("submit", async (event) => {
@@ -178,7 +260,7 @@ form.addEventListener("submit", async (event) => {
   setSending(true);
   status.textContent = "正在分析问题…";
   try {
-    await sendMessage(prompt);
+    await sendMessage({ prompt });
   } catch (error) {
     status.textContent = error.message;
   } finally {

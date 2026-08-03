@@ -19,11 +19,15 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.run import AgentRunResultEvent
 
+from core.shell_approval import ShellApprovalRequest
+from core.server import UsageLimitReached
+
 
 @dataclass(frozen=True)
 class StreamConsumptionResult:
     final_response_text: str
     run_result: Any | None
+    usage_limit_reached: UsageLimitReached | None = None
 
 
 _TOOL_DETAIL_KEYS = {
@@ -139,12 +143,20 @@ async def consume_stream_events(
     stream: Any,
     formatter: Any,
     tool_status_labels: dict[str, str],
+    on_shell_approval: Any | None = None,
 ) -> StreamConsumptionResult:
     final_response_text = ""
     run_result = None
+    usage_limit_reached = None
 
     async for event in stream:
-        if isinstance(event, PartStartEvent):
+        if isinstance(event, UsageLimitReached):
+            usage_limit_reached = event
+        elif isinstance(event, ShellApprovalRequest):
+            if on_shell_approval is None:
+                raise RuntimeError("当前入口不支持 Shell 命令确认")
+            await on_shell_approval(event)
+        elif isinstance(event, PartStartEvent):
             if isinstance(event.part, ThinkingPart):
                 # 并非所有模型都会暴露 ThinkingPart，这里不再依赖它驱动状态提示。
                 pass
@@ -180,4 +192,5 @@ async def consume_stream_events(
     return StreamConsumptionResult(
         final_response_text=final_response_text,
         run_result=run_result,
+        usage_limit_reached=usage_limit_reached,
     )

@@ -6,6 +6,7 @@ from pathlib import Path
 from httpx import AsyncClient
 
 from config.settings import Settings
+from core.shell_approval import ShellApprovalManager
 
 from .session_store import SessionStore
 
@@ -19,3 +20,4 @@ class Deps:
     project_path: Path
     settings: Settings
     session_store: SessionStore
+    shell_approvals: ShellApprovalManager
