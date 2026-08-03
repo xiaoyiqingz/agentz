@@ -7,7 +7,6 @@
 ```
 tests/
 ├── __init__.py              # 使tests成为Python包
-├── test_code_reader.py      # code_reader模块的测试
 └── README.md               # 本说明文件
 ```
 
@@ -34,17 +33,12 @@ uv run python scripts/run_tests.py
 # 运行所有测试
 uv run python scripts/run_tests.py
 
-# 运行特定测试文件
-uv run python scripts/run_tests.py code_reader
-
 # 直接使用unittest运行所有测试
 uv run python -m unittest discover tests/
 
-# 运行特定测试文件
-uv run python -m unittest tests.test_code_reader
-
-# 运行特定测试方法
-uv run python -m unittest tests.test_code_reader.TestCodeReader.test_read_single_line
+# 运行特定测试文件或测试方法
+uv run python -m unittest tests.test_config
+uv run python -m unittest tests.test_config.TestConfig.test_load_settings_includes_mimo_defaults
 ```
 
 ### 使用标准Python运行测试
@@ -59,15 +53,10 @@ python3 -m unittest discover tests/
 ### 运行特定测试
 ```bash
 # 运行特定测试文件
-python3 scripts/run_tests.py code_reader
+python3 -m unittest tests.test_config
 
-# 或者直接运行特定测试文件
-python3 -m unittest tests.test_code_reader
-```
-
-### 运行特定测试方法
-```bash
-python3 -m unittest tests.test_code_reader.TestCodeReader.test_read_single_line
+# 运行特定测试方法
+python3 -m unittest tests.test_config.TestConfig.test_load_settings_includes_mimo_defaults
 ```
 
 ## 📋 测试文件命名规范
@@ -136,21 +125,20 @@ uv add requests  # 添加其他依赖
 uv run python scripts/run_tests.py
 
 # 2. 运行特定测试文件
-uv run python scripts/run_tests.py code_reader
+uv run python -m unittest tests.test_config
 ```
 
 **注意**: 如果遇到路径问题，可以使用绝对路径：
 ```bash
 # 使用绝对路径运行测试
 uv run python /path/to/your/project/scripts/run_tests.py
-uv run python /path/to/your/project/scripts/run_tests.py code_reader
 ```
 
 **其他方式**: 直接运行测试文件
 
 ```bash
 # 3. 直接运行测试文件（使用绝对路径）
-uv run python /path/to/your/project/tests/test_code_reader.py
+uv run python /path/to/your/project/tests/test_config.py
 ```
 
 **高级用法**: 测试覆盖率报告
@@ -158,7 +146,6 @@ uv run python /path/to/your/project/tests/test_code_reader.py
 ```bash
 # 4. 生成测试覆盖率报告（需要安装 coverage）
 uv add coverage
-uv run coverage run tests/test_code_reader.py
 uv run coverage report
 uv run coverage html  # 生成HTML报告
 ```
@@ -169,7 +156,7 @@ uv run coverage html  # 生成HTML报告
 uv run python /path/to/your/project/scripts/run_tests.py
 
 # 使用绝对路径运行特定测试文件
-uv run python /path/to/your/project/tests/test_code_reader.py
+uv run python /path/to/your/project/tests/test_config.py
 ```
 
 ### uv 的其他有用命令

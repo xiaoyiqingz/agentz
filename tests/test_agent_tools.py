@@ -9,7 +9,7 @@ from pydantic_ai.models.test import TestModel
 from config.settings import load_settings
 from core.readonly_filesystem import PROJECT_FILESYSTEM_TOOLS
 from core.server import create_agent
-from prompts.prompt import get_smart_assistant_prompt
+from prompts.prompt import get_smart_assistant_prompt, get_smart_assistant_prompt_bak
 from tools.register import build_agent_tools
 
 
@@ -98,15 +98,27 @@ class TestAgentTools(unittest.TestCase):
             },
         )
 
-    def test_smart_prompt_uses_generic_tool_rules_without_manual_tool_catalog(self):
+    def test_smart_prompt_uses_compact_generic_tool_rules(self):
         prompt = get_smart_assistant_prompt()
 
-        self.assertIn("[工具调用规则]", prompt)
-        self.assertIn("会随请求自动提供", prompt)
-        self.assertIn("`find_files`（glob）", prompt)
-        self.assertIn("`search_files`（regex）", prompt)
+        self.assertIn("[工具规则]", prompt)
+        self.assertIn("随请求以 schema 提供", prompt)
+        self.assertIn("`find_files`", prompt)
+        self.assertIn("`search_files`", prompt)
+        self.assertIn("`expected_hash`", prompt)
+        self.assertIn('git_readonly(operation="status", repository_path=...)', prompt)
+        self.assertIn("skill 或 MCP", prompt)
+        self.assertIn("用户提供 URL 并要求读取或核实", prompt)
+        self.assertNotIn("[工具使用优先级]", prompt)
+        self.assertNotIn("MCP toolsets", prompt)
         self.assertNotIn("[可用能力]", prompt)
         self.assertNotIn("`get_current_time`:", prompt)
+
+    def test_previous_smart_prompt_is_available_for_comparison(self):
+        prompt = get_smart_assistant_prompt_bak()
+
+        self.assertIn("[工具使用优先级]", prompt)
+        self.assertIn("MCP toolsets", prompt)
 
     def test_registered_tools_are_sent_to_the_model_without_prompt_catalog(self):
         agent = create_agent(self.settings, Path.cwd())

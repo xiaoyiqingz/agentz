@@ -263,13 +263,13 @@ from pydantic_ai import Agent
 from models.qwen import model_qwen
 from models.deepseek import model_deepseek
 from tools.tools_registry import get_code_tools, get_weather_tools, get_search_tools
-from prompts.prompt import get_coder_prompt, get_smart_assistant_prompt
+from prompts.prompt import get_smart_assistant_prompt
 
 # 代码 Agent
 code_agent = Agent(
     model=model_qwen,  # 使用代码能力强的模型
     tools=get_code_tools(),  # 代码相关工具
-    system_prompt=get_coder_prompt(),
+    system_prompt=get_smart_assistant_prompt(),
 )
 
 # 天气 Agent
