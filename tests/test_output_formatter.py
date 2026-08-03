@@ -47,6 +47,18 @@ class TestOutputFormatter(unittest.TestCase):
 
         self.assertTrue(formatter.markdown_formatter.show_stream)
 
+    def test_unified_formatter_prints_dim_tool_detail(self):
+        formatter = create_formatter(use_live=False)
+        formatter.console = Mock()
+
+        formatter.print_tool_detail("operation='diff' · base_ref='master'")
+
+        formatter.console.print.assert_called_once_with(
+            "  ↳ operation='diff' · base_ref='master'",
+            style="dim grey50",
+            markup=False,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

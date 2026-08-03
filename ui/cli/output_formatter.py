@@ -348,6 +348,14 @@ class UnifiedFormatter:
         except Exception:
             print(f"... {plain_content}")
 
+    def print_tool_detail(self, content: str) -> None:
+        """Print at most a couple of dim lines describing a tool call."""
+        plain_content = self._to_plain_text(content)
+        try:
+            self.console.print(f"  ↳ {plain_content}", style="dim grey50", markup=False)
+        except Exception:
+            print(f"  ↳ {plain_content}")
+
     def add_chunk(self, chunk: str) -> None:
         """
         添加文本块到 Markdown 流式输出缓冲区

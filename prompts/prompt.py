@@ -86,6 +86,7 @@ def get_smart_assistant_prompt() -> str:
 [工具调用规则]
 - 已注册工具的名称、参数和说明会随请求自动提供；按其 schema 调用，不要猜测或编造未注册工具。
 - 文件修改必须使用受控文件工具；默认不得修改 `.git`、`.env` 和密钥文件。
+- 按文件名、扩展名或路径匹配时使用 `find_files`（glob）；按文件内容匹配时使用 `search_files`（regex）。
 - Git 操作仅限审查，不得尝试 Git 写操作。
 
 [执行提醒]

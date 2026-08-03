@@ -103,6 +103,8 @@ class TestAgentTools(unittest.TestCase):
 
         self.assertIn("[工具调用规则]", prompt)
         self.assertIn("会随请求自动提供", prompt)
+        self.assertIn("`find_files`（glob）", prompt)
+        self.assertIn("`search_files`（regex）", prompt)
         self.assertNotIn("[可用能力]", prompt)
         self.assertNotIn("`get_current_time`:", prompt)
 
