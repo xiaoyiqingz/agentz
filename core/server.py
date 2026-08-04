@@ -256,7 +256,7 @@ def _append_recovery_transcript(transcript: list[str], event: Any) -> None:
     if isinstance(event, FunctionToolCallEvent):
         transcript.append(f"工具调用 {event.part.tool_name}: {event.part.args}")
     elif isinstance(event, FunctionToolResultEvent):
-        transcript.append(f"工具结果: {event.result.content}")
+        transcript.append(f"工具结果: {event.part.content}")
 
 
 def build_usage_limit_prompt(recovery: UsageLimitRecovery, action: str) -> str:
@@ -283,9 +283,18 @@ async def _handle_shell_approvals(
     """Suspend deferred Shell calls until the active UI makes a choice."""
     approvals: dict[str, bool | ToolDenied] = {}
     for call in requests.approvals:
-        args = call.args if isinstance(call.args, dict) else {}
+        # Providers may supply tool arguments either as a mapping or as a JSON
+        # string.  Use Pydantic AI's normalizer so the command shown to the
+        # user is always the command that will be executed.
+        args = call.args_as_dict()
+        command = args.get("command")
+        if not isinstance(command, str) or not command.strip():
+            approvals[call.tool_call_id] = ToolDenied(
+                "Shell 命令缺失或格式无效，已拒绝执行"
+            )
+            continue
         request = ctx.deps.shell_approvals.create_request(
-            command=str(args.get("command", "")),
+            command=command,
             working_directory=str(ctx.deps.project_path),
             is_background=call.tool_name == "start_command",
         )

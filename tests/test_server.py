@@ -4,9 +4,12 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 
+from pydantic_ai import DeferredToolRequests, ToolDenied
+from pydantic_ai.messages import ToolCallPart
 from pydantic_ai.run import AgentRunResultEvent
 
-from core.server import AgentSession, stream_session_turn
+from core.server import AgentSession, _handle_shell_approvals, stream_session_turn
+from core.shell_approval import ShellApprovalManager
 
 
 class _StreamContext:
@@ -62,6 +65,57 @@ class TestServer(unittest.TestCase):
             conversation_id="conversation-1",
             metadata={"session_id": "session-1", "project_path": "/project"},
         )
+
+
+class TestShellApprovalHandling(unittest.IsolatedAsyncioTestCase):
+    async def test_json_string_arguments_show_the_actual_command(self):
+        manager = ShellApprovalManager("session-1")
+        ctx = SimpleNamespace(
+            deps=SimpleNamespace(
+                shell_approvals=manager,
+                project_path=Path("/project"),
+            )
+        )
+        requests = DeferredToolRequests(
+            approvals=[
+                ToolCallPart(
+                    tool_name="run_command",
+                    tool_call_id="call-1",
+                    args='{"command":"printf hello"}',
+                )
+            ]
+        )
+
+        handler = asyncio.create_task(_handle_shell_approvals(ctx, requests))
+        request = await manager.next_request()
+
+        self.assertEqual(request.command, "printf hello")
+        manager.resolve(request.approval_id, False)
+        result = await handler
+        self.assertIsInstance(result.approvals["call-1"], ToolDenied)
+
+    async def test_missing_or_invalid_command_is_rejected_without_prompting(self):
+        manager = ShellApprovalManager("session-1")
+        ctx = SimpleNamespace(
+            deps=SimpleNamespace(
+                shell_approvals=manager,
+                project_path=Path("/project"),
+            )
+        )
+        requests = DeferredToolRequests(
+            approvals=[
+                ToolCallPart(
+                    tool_name="run_command",
+                    tool_call_id="call-1",
+                    args='{"command": null}',
+                )
+            ]
+        )
+
+        result = await _handle_shell_approvals(ctx, requests)
+
+        self.assertIsInstance(result.approvals["call-1"], ToolDenied)
+        self.assertTrue(manager._requests.empty())
 
 
 if __name__ == "__main__":
