@@ -1,16 +1,19 @@
 import unittest
+from io import StringIO
 from pathlib import Path
 from unittest.mock import Mock
 
 from pydantic_ai_harness.compaction import TieredCompaction
 from pydantic_ai_harness.planning import Planning
 from pydantic_ai.models.test import TestModel
+from rich.console import Console
 
 from config.settings import load_settings
 from core.readonly_filesystem import PROJECT_FILESYSTEM_TOOLS
 from core.server import create_agent
 from prompts.prompt import get_smart_assistant_prompt, get_smart_assistant_prompt_bak
 from tools.register import build_agent_tools
+from ui.cli.output_formatter import AgentZMarkdown
 
 
 class TestAgentTools(unittest.TestCase):
@@ -145,6 +148,14 @@ class TestAgentTools(unittest.TestCase):
         self.assertIn("load_skill", hidden_names)
         self.assertIn("read_skill_resource", hidden_names)
         self.assertIn("run_skill_script", hidden_names)
+
+    def test_cli_markdown_headings_are_left_aligned(self):
+        output = StringIO()
+        Console(file=output, width=30, force_terminal=False).print(
+            AgentZMarkdown("## 标题")
+        )
+
+        self.assertTrue(output.getvalue().startswith("标题"))
 
     def test_smart_prompt_no_longer_mentions_legacy_code_editing_tools(self):
         prompt = get_smart_assistant_prompt()

@@ -9,7 +9,25 @@ from typing import Optional, Union
 
 from rich.console import Console
 from rich.live import Live
-from rich.markdown import Markdown
+from rich.markdown import Heading, Markdown
+
+
+class LeftAlignedHeading(Heading):
+    """Render Markdown headings like the Web UI, aligned to the left."""
+
+    def __rich_console__(self, console: Console, options):
+        # Rich centers every Markdown heading by default (and puts H1 in a
+        # panel).  That wastes terminal width and differs from the Web UI.
+        # Keeping the Markdown heading style preserves its stronger visual
+        # weight while making its layout consistent across both clients.
+        self.text.justify = "left"
+        yield self.text
+
+
+class AgentZMarkdown(Markdown):
+    """Project Markdown renderer with left-aligned headings."""
+
+    elements = {**Markdown.elements, "heading_open": LeftAlignedHeading}
 
 
 class MarkdownStreamFormatter:
@@ -41,7 +59,7 @@ class MarkdownStreamFormatter:
 
         try:
             # 使用 rich 渲染 Markdown
-            markdown = Markdown(self.buffer, code_theme="monokai")
+            markdown = AgentZMarkdown(self.buffer, code_theme="monokai")
             self.console.print(markdown, end="")
         except Exception:
             # 如果渲染失败，直接输出原始文本
@@ -109,7 +127,7 @@ class SimpleMarkdownFormatter:
 
         try:
             # 使用 rich 渲染 Markdown，支持语法高亮
-            markdown = Markdown(self.buffer, code_theme="monokai")
+            markdown = AgentZMarkdown(self.buffer, code_theme="monokai")
             self.console.print(markdown)
         except Exception:
             # 如果渲染失败，直接输出原始文本
@@ -152,7 +170,7 @@ class LiveMarkdownFormatter:
         # 如果 Live 还未启动，先启动它
         if self.live is None:
             self.live = Live(
-                Markdown("", code_theme="monokai"),
+                AgentZMarkdown("", code_theme="monokai"),
                 console=self.console,
                 refresh_per_second=30,
                 transient=False,
@@ -161,7 +179,7 @@ class LiveMarkdownFormatter:
 
         # 更新显示内容
         try:
-            markdown = Markdown(self.buffer, code_theme="monokai")
+            markdown = AgentZMarkdown(self.buffer, code_theme="monokai")
             self.live.update(markdown)
         except Exception:
             # 如果渲染失败，显示原始文本
@@ -187,7 +205,7 @@ class LiveMarkdownFormatter:
             self._update_display()
         else:
             try:
-                markdown = Markdown(self.buffer, code_theme="monokai")
+                markdown = AgentZMarkdown(self.buffer, code_theme="monokai")
                 self.live.update(markdown)
             except Exception:
                 self.live.update(self.buffer)
