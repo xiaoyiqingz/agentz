@@ -69,18 +69,22 @@ class TestAgentTools(unittest.TestCase):
 
     def test_review_tools_are_registered_via_toolset_registry(self):
         registered = build_agent_tools(self.settings)
-        local_toolsets = registered.toolsets[:3]
+        local_toolsets = registered.toolsets[:4]
         tool_names = {
             name for toolset in local_toolsets for name in toolset.tools
         }
 
         self.assertIn("git_readonly", tool_names)
+        self.assertIn("read_files", tool_names)
+        self.assertIn("search_files_batch", tool_names)
 
     def test_tool_status_labels_are_provided_by_registry(self):
         labels = build_agent_tools(self.settings).status_labels
 
         self.assertEqual(labels["read_file"], "正在读取项目文件")
+        self.assertEqual(labels["read_files"], "正在批量读取项目文件")
         self.assertEqual(labels["search_files"], "正在搜索项目代码")
+        self.assertEqual(labels["search_files_batch"], "正在批量搜索项目代码")
         self.assertEqual(labels["edit_file"], "正在修改项目文件")
         self.assertEqual(labels["write_file"], "正在写入项目文件")
         self.assertEqual(labels["git_readonly"], "正在检查 Git 仓库")
@@ -102,12 +106,14 @@ class TestAgentTools(unittest.TestCase):
         )
 
     def test_smart_prompt_uses_compact_generic_tool_rules(self):
-        prompt = get_smart_assistant_prompt()
+        prompt = get_smart_assistant_prompt_bak()
 
         self.assertIn("[工具规则]", prompt)
         self.assertIn("随请求以 schema 提供", prompt)
         self.assertIn("`find_files`", prompt)
         self.assertIn("`search_files`", prompt)
+        self.assertIn("`read_files`", prompt)
+        self.assertIn("`search_files_batch`", prompt)
         self.assertIn("`expected_hash`", prompt)
         self.assertIn('git_readonly(operation="status", repository_path=...)', prompt)
         self.assertIn("skill 或 MCP", prompt)
@@ -118,10 +124,12 @@ class TestAgentTools(unittest.TestCase):
         self.assertNotIn("`get_current_time`:", prompt)
 
     def test_previous_smart_prompt_is_available_for_comparison(self):
-        prompt = get_smart_assistant_prompt_bak()
+        prompt = get_smart_assistant_prompt()
 
         self.assertIn("[工具使用优先级]", prompt)
         self.assertIn("MCP toolsets", prompt)
+        self.assertIn("`read_files`", prompt)
+        self.assertIn("`search_files_batch`", prompt)
 
     def test_registered_tools_are_sent_to_the_model_without_prompt_catalog(self):
         agent = create_agent(self.settings, Path.cwd())
@@ -158,7 +166,7 @@ class TestAgentTools(unittest.TestCase):
         self.assertTrue(output.getvalue().startswith("标题"))
 
     def test_smart_prompt_no_longer_mentions_legacy_code_editing_tools(self):
-        prompt = get_smart_assistant_prompt()
+        prompt = get_smart_assistant_prompt_bak()
 
         self.assertNotIn("`read_code_file`", prompt)
         self.assertNotIn("`apply_code_patch`", prompt)

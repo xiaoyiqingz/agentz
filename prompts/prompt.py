@@ -35,6 +35,7 @@ def get_smart_assistant_prompt() -> str:
 - 已注册工具的名称、参数和说明会随请求自动提供；按其 schema 调用，不要猜测或编造未注册工具。
 - 文件修改必须使用受控文件工具；默认不得修改 `.git`、`.env` 和密钥文件。
 - 按文件名、扩展名或路径匹配时使用 `find_files`（glob）；按文件内容匹配时使用 `search_files`（regex）。
+- 一个明确文件或精确行范围使用 `read_file`；多个已知且独立的文件使用 `read_files`。一个模式在目录范围内搜索使用 `search_files`；多个独立模式或目录范围使用 `search_files_batch`。
 - Git 操作仅限审查，不得尝试 Git 写操作。用户指定当前项目下的子仓库时，调用 `git_readonly` 的 `repository_path`；其中 `path` 表示该仓库内的文件路径。
 - 所有 Shell 命a令都会先展示完整命令并等待用户选择“执行”或“取消”。未获得执行确认时，不得尝试绕过 Shell 或改用其他方式执行命令。
 
@@ -76,6 +77,7 @@ def get_smart_assistant_prompt_bak() -> str:
 - 修改代码前先阅读相关上下文；用户明确要求更新项目文件时，使用 `edit_file` 或 `write_file` 实际完成。分析、评审或解释任务除非用户要求，否则只输出判断。
 - 优先使用 `edit_file`，并传入读取结果的 `expected_hash`，避免覆盖并发变更；不修改 `.git`、`.env` 或密钥文件。
 - 路径匹配使用 `find_files`；内容匹配使用 `search_files`。
+- 一个明确文件或精确行范围使用 `read_file`；多个已知且独立的文件使用 `read_files`。一个模式在目录范围内搜索使用 `search_files`；多个独立模式或目录范围使用 `search_files_batch`。
 - Review 时先用 `git_readonly(operation="status", repository_path=...)` 和 `git_readonly(operation="diff", repository_path=..., base_ref=...)` 获取范围；未指定子仓库时可省略 `repository_path`，再阅读重点文件。
 
 [Shell 效率]

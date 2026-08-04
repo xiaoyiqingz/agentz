@@ -3,6 +3,7 @@
 from typing import Any
 
 from config.settings import Settings
+from tools.local.batch_files import build_batch_file_toolset
 from tools.local.project_review import build_project_review_toolset
 from tools.local.time import build_time_toolset
 from tools.local.weather import build_weather_toolset
@@ -15,5 +16,6 @@ def build_local_toolsets(settings: Settings) -> list[Any]:
         build_time_toolset(),
         build_weather_toolset(),
         build_project_review_toolset(),
+        build_batch_file_toolset(),
         build_web_search_toolset(settings),
     ]
