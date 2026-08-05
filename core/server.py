@@ -222,6 +222,9 @@ async def stream_session_turn(
             finally:
                 event_task.cancel()
                 approval_task.cancel()
+                await asyncio.gather(
+                    event_task, approval_task, return_exceptions=True
+                )
     except UsageLimitExceeded as exc:
         recovery = UsageLimitRecovery(
             session_id=session.session_id,

@@ -1,7 +1,7 @@
 """
 交互式客户端程序
 等待用户输入，在输入内容后加上"！"并返回给用户
-按 Ctrl-C 可以退出程序
+生成期间按 Ctrl-C 取消本轮；等待输入时按 Ctrl-C 退出程序
 """
 
 import argparse
@@ -95,18 +95,13 @@ def main():
 
     session_id, resumed = normalize_session_id(args.resume)
 
-    print("欢迎使用交互式客户端！")
-    print("请输入内容（按 Ctrl-C 退出）：")
-    print(f"当前 session: {session_id}")
-    if resumed:
-        print("已根据 --resume 加载该 session 的历史。")
-
     try:
         asyncio.run(
             run_cli(
                 settings=settings,
                 session_id=session_id,
                 requested_project_path=args.project_path,
+                resumed=resumed,
             )
         )
         # asyncio.run(server_run())
