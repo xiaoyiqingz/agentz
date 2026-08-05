@@ -171,7 +171,7 @@ def _print_startup_panel(session: AgentSession, resumed: bool) -> None:
     if session.ignored_requested_project_path:
         lines.append("已恢复 session 绑定的项目目录，忽略本次传入的 --project-path。")
     Console().print(
-        Panel(
+        Panel.fit(
             "\n".join(lines),
             title="[bold cyan]欢迎使用 AgentZ[/bold cyan]",
             border_style="cyan",

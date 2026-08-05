@@ -344,7 +344,7 @@ class UnifiedFormatter:
             print()
 
     def print_rule(
-        self, text: str = "[bold cyan]AI 响应[/bold cyan]", style: str = "cyan"
+        self, text: str = "[bold grey70]AI 响应[/bold grey70]", style: str = "grey50"
     ) -> None:
         """
         打印分隔线（替代 console.rule）
