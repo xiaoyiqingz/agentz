@@ -22,7 +22,7 @@ function appendMessage(role, text = "") {
   return content;
 }
 
-function appendShellApproval(event) {
+function appendShellApproval(event, beforeElement = null) {
   const card = document.createElement("article");
   card.className = "message assistant shell-approval";
   const title = document.createElement("strong");
@@ -62,7 +62,7 @@ function appendShellApproval(event) {
   reject.addEventListener("click", () => decide("reject"));
   actions.append(approve, reject);
   card.append(title, directory, command, actions);
-  messages.append(card);
+  messages.insertBefore(card, beforeElement);
   messages.scrollTop = messages.scrollHeight;
 }
 
@@ -215,7 +215,10 @@ async function sendMessage(payload) {
       status.textContent = event.message;
     } else if (event.type === "shell_approval_requested") {
       status.textContent = "等待你确认 Shell 命令…";
-      appendShellApproval(event);
+      // The answer bubble is allocated when the request starts. Put approval
+      // cards immediately before it, so text received after the user's choice
+      // is rendered below the confirmation instead of above it.
+      appendShellApproval(event, answer.parentElement);
     } else if (event.type === "usage_limit_reached") {
       status.textContent = "本轮分析达到预算上限";
       appendUsageLimitActions(event);
